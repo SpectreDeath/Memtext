@@ -88,21 +88,10 @@ def main():
         for p in list_projects():
             print(f"{p['path']} - {p['name']}")
     elif args.command == "migrate":
-        from memtext.core import get_context_dir
+        from memtext.core import migrate_to_db
 
-        ctx_dir = get_context_dir()
-        decisions_file = ctx_dir / "decisions.md"
-        if not decisions_file.exists():
-            print("No old format found")
-            return
-        content = decisions_file.read_text()
-        lines = content.split("\n")
-        count = 0
-        for line in lines:
-            if line.startswith("- "):
-                add_entry(line[2:], line[2:], "decision")
-                count += 1
-        print(f"Migrated {count} decisions to SQLite")
+        count = migrate_to_db()
+        print(f"Migrated {count} entries to SQLite")
     else:
         parser.print_help()
 

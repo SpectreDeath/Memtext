@@ -1,4 +1,3 @@
-import subprocess
 import re
 from datetime import datetime
 from pathlib import Path
@@ -85,26 +84,26 @@ def query_context(query: str, limit: int = 5):
         print("No .context/ found. Run 'memtext init' first.")
         return []
 
-    try:
-        result = subprocess.run(
-            ["grep", "-r", "-i", "--include=*.md", query, str(ctx_dir)],
-            capture_output=True,
-            text=True,
-        )
-    except FileNotFoundError:
-        result = subprocess.run(
-            ["rg", "-i", query, str(ctx_dir), "--type", "md"],
-            capture_output=True,
-            text=True,
-        )
-
     results = []
-    for line in result.stdout.split("\n")[:limit]:
-        if ":" in line:
-            parts = line.split(":", 1)
-            file_path = Path(parts[0]).name
-            content = parts[1][:200]
-            results.append({"file": file_path, "line": content, "content": content})
+    regex = re.compile(query, re.IGNORECASE)
+
+    for file_path in ctx_dir.rglob("*.md"):
+        try:
+            content = file_path.read_text(errors="ignore")
+            lines = content.split("\n")
+            for i, line in enumerate(lines):
+                if regex.search(line):
+                    results.append(
+                        {
+                            "file": file_path.name,
+                            "line": line.strip()[:200],
+                            "content": line.strip(),
+                        }
+                    )
+                    if len(results) >= limit:
+                        return results
+        except Exception as e:
+            print(f"Error reading {file_path}: {e}")
 
     return results
 
@@ -127,3 +126,61 @@ def add_log(text: str, session: str = None):
             f.write(f"# Session Log {date}\n\n### {session_name}\n{text}\n")
 
     print(f"Logged to {log_file}")
+
+
+def migrate_to_db():
+    """Migrate filesystem context to SQLite database."""
+    from memtext.db import add_entry, init_db
+
+    ctx_dir = get_context_dir()
+    if not ctx_dir.exists():
+        print("No .context directory to migrate.")
+        return 0
+
+    init_db()
+    count = 0
+
+    # 1. Migrate decisions
+    decisions_file = ctx_dir / "decisions.md"
+    if decisions_file.exists():
+        content = decisions_file.read_text()
+        for line in content.split("\n"):
+            if line.startswith("- "):
+                title = line[2:].strip()
+                if add_entry(title, title, "decision") != -1:
+                    count += 1
+
+    # 2. Migrate logs
+    logs_dir = ctx_dir / "session-logs"
+    if logs_dir.exists():
+        for log_file in logs_dir.glob("*.md"):
+            content = log_file.read_text()
+            # Simple heuristic: treat lines starting with ### as titles
+            current_title = f"Log {log_file.stem}"
+            current_body = []
+            for line in content.split("\n"):
+                if line.startswith("### "):
+                    if current_body:
+                        # Save previous section
+                        if (
+                            add_entry(current_title, "\n".join(current_body), "note")
+                            != -1
+                        ):
+                            count += 1
+                    current_title = line[4:].strip()
+                    current_body = []
+                elif not line.startswith("#"):
+                    current_body.append(line)
+
+            if current_body:
+                if add_entry(current_title, "\n".join(current_body), "note") != -1:
+                    count += 1
+
+    # 3. Migrate identity
+    identity_file = ctx_dir / "identity.md"
+    if identity_file.exists():
+        content = identity_file.read_text()
+        if add_entry("Project Identity", content, "convention") != -1:
+            count += 1
+
+    return count

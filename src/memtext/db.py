@@ -50,16 +50,40 @@ def init_db() -> Path:
     return db_path
 
 
-def update_fts(title: str, content: str, entry_type: str, tags: str):
+def entry_exists(title: str, entry_type: str = None) -> bool:
+    """Check if an entry with the same title and type already exists."""
     db_path = get_db_path()
+    if not db_path.exists():
+        return False
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO context_fts (title, content, entry_type, tags) VALUES (?, ?, ?, ?)",
-        (title, content, entry_type, tags or ""),
-    )
-    conn.commit()
+    if entry_type:
+        cursor.execute(
+            "SELECT 1 FROM context_entries WHERE title = ? AND entry_type = ?",
+            (title, entry_type),
+        )
+    else:
+        cursor.execute("SELECT 1 FROM context_entries WHERE title = ?", (title,))
+    exists = cursor.fetchone() is not None
     conn.close()
+    return exists
+
+
+def update_fts(title: str, content: str, entry_type: str, tags: str):
+    db_path = get_db_path()
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO context_fts (title, content, entry_type, tags) VALUES (?, ?, ?, ?)",
+            (title, content, entry_type, tags or ""),
+        )
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Database error in update_fts: {e}")
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 
 def add_entry(
@@ -70,25 +94,34 @@ def add_entry(
     linked_files: list = None,
     importance: int = 1,
 ) -> int:
+    if entry_exists(title, entry_type):
+        return -1
+
     db_path = get_db_path()
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO context_entries (title, content, entry_type, tags, linked_files, importance) VALUES (?, ?, ?, ?, ?, ?)",
-        (
-            title,
-            content,
-            entry_type,
-            ",".join(tags or []),
-            ",".join(linked_files or []),
-            importance,
-        ),
-    )
-    entry_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    update_fts(title, content, entry_type, ",".join(tags or []))
-    return entry_id
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO context_entries (title, content, entry_type, tags, linked_files, importance) VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                title,
+                content,
+                entry_type,
+                ",".join(tags or []),
+                ",".join(linked_files or []),
+                importance,
+            ),
+        )
+        entry_id = cursor.lastrowid
+        conn.commit()
+        update_fts(title, content, entry_type, ",".join(tags or []))
+        return entry_id
+    except sqlite3.Error as e:
+        print(f"Database error in add_entry: {e}")
+        return -1
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 
 def get_entry(entry_id: int) -> dict:
