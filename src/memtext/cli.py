@@ -2,7 +2,13 @@ import argparse
 import sys
 from pathlib import Path
 
-from memtext.core import init_context, save_context, query_context, add_log
+from memtext.core import (
+    init_context,
+    save_context,
+    query_context,
+    add_log,
+    synthesize_memories,
+)
 from memtext.db import (
     init_db,
     add_entry,
@@ -38,7 +44,7 @@ def main():
     add_parser.add_argument(
         "--type",
         default="note",
-        choices=["decision", "pattern", "note", "error", "convention"],
+        choices=["decision", "pattern", "note", "error", "convention", "memory"],
     )
     add_parser.add_argument("--tags", nargs="*", help="Tags")
     add_parser.add_argument("--importance", type=int, default=1)
@@ -53,6 +59,19 @@ def main():
     )
 
     migrate_parser = subparsers.add_parser("migrate", help="Migrate v0.1.x to v0.2.0")
+
+    synth_parser = subparsers.add_parser(
+        "synthesize",
+        help="Synthesize logs into memories",
+        description="Extract high-value memories from session logs. Scans for @memory markers in logs or processes provided text.",
+    )
+    synth_parser.add_argument(
+        "--text",
+        help="Manual text to synthesize (format: Title: Content (@tags: t1, t2))",
+    )
+    synth_parser.add_argument(
+        "--all", action="store_true", help="Scan all logs (default is recent only)"
+    )
 
     args = parser.parse_args()
 
@@ -92,6 +111,9 @@ def main():
 
         count = migrate_to_db()
         print(f"Migrated {count} entries to SQLite")
+    elif args.command == "synthesize":
+        count = synthesize_memories(source_text=args.text, recent_only=not args.all)
+        print(f"Synthesized {count} new memories from logs")
     else:
         parser.print_help()
 

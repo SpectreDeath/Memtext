@@ -184,3 +184,66 @@ def migrate_to_db():
             count += 1
 
     return count
+
+
+SYNTHESIS_PROMPT = """
+Analyze the following raw session logs and extract key "Memories".
+A Memory is a distilled, high-value piece of information such as a decision, a discovered pattern, or a critical project constraint.
+
+Format your output as a list of memories:
+- [Memory Title]: [Memory Content] (@tags: tag1, tag2)
+
+RAW LOGS:
+{text}
+"""
+
+
+def synthesize_memories(source_text: str = None, recent_only: bool = True):
+    """
+    Extract high-value memories from raw logs.
+    If source_text is provided, it distills that text.
+    Otherwise, it scans recent session logs for '@memory' markers.
+    """
+    from memtext.db import add_entry, entry_exists
+
+    if source_text:
+        # If text is provided, we assume it's already a distilled memory or needs parsing
+        # Simple parser for the format: Title: Content (@tags: t1, t2)
+        match = re.match(r"(.*?): (.*?) \(@tags: (.*?)\)", source_text)
+        if match:
+            title, content, tags_str = match.groups()
+            tags = [t.strip() for t in tags_str.split(",")]
+            return add_entry(title, content, "memory", tags=tags)
+        else:
+            return add_entry("Synthesized Memory", source_text, "memory")
+
+    # If no text, scan for @memory markers in filesystem logs
+    ctx_dir = get_context_dir()
+    logs_dir = ctx_dir / "session-logs"
+    if not logs_dir.exists():
+        return 0
+
+    log_files = sorted(
+        logs_dir.glob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True
+    )
+    if recent_only:
+        log_files = log_files[:2]
+
+    count = 0
+    for log_file in log_files:
+        content = log_file.read_text()
+        # Look for @memory: Title - Content
+        # Or just @memory: some text
+        pattern = re.compile(r"@memory:\s*(.*?)(?=\n|@|$)", re.IGNORECASE | re.DOTALL)
+        matches = pattern.findall(content)
+        for match in matches:
+            text = match.strip()
+            title = text.split("\n")[0][:50]
+            memory_title = f"Auto-Memory: {title}"
+            # Skip if this memory already exists
+            if entry_exists(memory_title, "memory"):
+                continue
+            if add_entry(memory_title, text, "memory") != -1:
+                count += 1
+
+    return count

@@ -45,6 +45,11 @@ def init_db() -> Path:
         CREATE VIRTUAL TABLE IF NOT EXISTS context_fts USING fts5(title, content, entry_type, tags)
     """)
 
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_context_entries_last_accessed 
+        ON context_entries(last_accessed)
+    """)
+
     conn.commit()
     conn.close()
     return db_path
@@ -82,7 +87,7 @@ def update_fts(title: str, content: str, entry_type: str, tags: str):
     except sqlite3.Error as e:
         print(f"Database error in update_fts: {e}")
     finally:
-        if 'conn' in locals():
+        if "conn" in locals():
             conn.close()
 
 
@@ -120,7 +125,7 @@ def add_entry(
         print(f"Database error in add_entry: {e}")
         return -1
     finally:
-        if 'conn' in locals():
+        if "conn" in locals():
             conn.close()
 
 

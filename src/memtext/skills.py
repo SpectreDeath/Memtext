@@ -11,6 +11,10 @@ from memtext.db import (
     list_projects,
     scan_for_projects,
 )
+from memtext.core import (
+    synthesize_memories,
+    SYNTHESIS_PROMPT
+)
 
 
 def context_manager(action: dict) -> dict:
@@ -104,5 +108,21 @@ def project_manager(query: dict) -> dict:
         for p in found:
             register_project(p)
         return {"status": "success", "found": found}
+
+    return {"status": "error", "message": "Unknown action"}
+
+
+def context_synthesizer(action: dict) -> dict:
+    """Distill raw context into memories."""
+    action_type = action.get("action", "synthesize")
+
+    if action_type == "get_prompt":
+        return {"status": "success", "prompt": SYNTHESIS_PROMPT}
+
+    elif action_type == "synthesize":
+        text = action.get("text")
+        all_logs = action.get("all", False)
+        count = synthesize_memories(source_text=text, recent_only=not all_logs)
+        return {"status": "success", "new_memories": count}
 
     return {"status": "error", "message": "Unknown action"}
