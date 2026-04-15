@@ -44,87 +44,87 @@ PROLOG_MEMORY_RULES = """
 % MEMTEXT MEMORY ONTOLOGY
 % ============================================
 
-% Memory types
-memory_type(decision).
-memory_type(convention).
-memory_type(pattern).
-memory_type(constraint).
-memory_type(error).
-memory_type(note).
+% Memory type facts
+is_type(decision).
+is_type(convention).
+is_type(pattern).
+is_type(constraint).
+is_type(error).
+is_type(note).
 
 % ============================================
 % IMPORTANCE CLASSIFICATION
 % ============================================
+
 % Level 3: Critical (decisions, constraints)
-important(X) :- decision(X), !.
-important(X) :- constraint(X), !.
+important(Type) :- is_type(decision), is_type(Type), Type == decision.
+important(Type) :- is_type(constraint), is_type(Type), Type == constraint.
 
 % Level 2: High (conventions, patterns)
-important(X) :- convention(X), !.
-important(X) :- pattern(X), !.
+important(Type) :- is_type(convention), is_type(Type), Type == convention.
+important(Type) :- is_type(pattern), is_type(Type), Type == pattern.
 
 % Level 1: Normal (notes, errors)
-important(X) :- note(X).
-important(X) :- error(X).
+important(Type) :- is_type(note), is_type(Type), Type == note.
+important(Type) :- is_type(error), is_type(Type), Type == error.
 
 % ============================================
 % PRESERVATION RULES  
 % ============================================
 
 % Always preserve important memories
-preserve(X) :- important(X).
+preserve(Type) :- important(Type).
 
 % Preserve if frequently accessed (>= 3 times)
-preserve(X) :- access_count(X, N), N >= 3.
-
-% Preserve if referenced by other important memory
-preserve(X) :- referenced_by(X, Y), important(Y).
-
-% Preserve if recently created (within 7 days)
-preserve(X) :- created_recently(X, 7).
-
-% Don't preserve: duplicates, stale, low-value
-discard(X) :- duplicate_of(X, _).
-discard(X) :- stale(X, 30), not(important(X)).
-discard(X) :- low_value(X), not(preserve(X)).
+preserve(Type) :- access_count(Type, N), N >= 3.
 
 % ============================================
 % EXTRACTION PATTERNS
 % ============================================
 
 % Decision detection keywords
-decision_keyword(chosen).
-decision_keyword(decided).
-decision_keyword(adopted).
-decision_keyword(selected).
-decision_keyword(picked).
-decision_keyword(going_with).
+has_keyword(chosen).
+has_keyword(decided).
+has_keyword(adopted).
+has_keyword(selected).
+has_keyword(picked).
 
 % Convention detection keywords
-convention_keyword(always).
-convention_keyword(never).
-convention_keyword(must).
-convention_keyword(convention).
-convention_keyword(standard).
+has_keyword(always).
+has_keyword(always).
+has_keyword(never).
+has_keyword(must).
+has_keyword(convention).
+has_keyword(standard).
 
 % Pattern detection keywords  
-pattern_keyword(pattern).
-pattern_keyword(recurring).
-pattern_keyword(recurrent).
-pattern_keyword(common).
+has_keyword(pattern).
+has_keyword(recurring).
+has_keyword(common).
 
 % Constraint detection keywords
-constraint_keyword(cannot).
-constraint_keyword(must_not).
-constraint_keyword(required).
-constraint_keyword(depends_on).
-constraint_keyword(requires).
+has_keyword(cannot).
+has_keyword(required).
+has_keyword(depends).
+has_keyword(requires).
 
-% Extract memory type from text
-extract_type(Text, decision) :- contains(Text, DecisionKey), decision_keyword(DecisionKey), !.
-extract_type(Text, convention) :- contains(Text, ConvKey), convention_keyword(ConvKey), !.
-extract_type(Text, pattern) :- contains(Text, PatKey), pattern_keyword(PatKey), !.
-extract_type(Text, constraint) :- contains(Text, ConsKey), constraint_keyword(ConsKey), !.
+% Extract memory type from text - unified rules
+extract_type(Text, decision) :- sub_atom(Text, _, _, _, "chosen").
+extract_type(Text, decision) :- sub_atom(Text, _, _, _, "decided").
+extract_type(Text, decision) :- sub_atom(Text, _, _, _, "adopted").
+extract_type(Text, decision) :- sub_atom(Text, _, _, _, "selected").
+
+extract_type(Text, convention) :- sub_atom(Text, _, _, _, "always").
+extract_type(Text, convention) :- sub_atom(Text, _, _, _, "never").
+extract_type(Text, convention) :- sub_atom(Text, _, _, _, "must").
+
+extract_type(Text, pattern) :- sub_atom(Text, _, _, _, "pattern").
+extract_type(Text, pattern) :- sub_atom(Text, _, _, _, "recurring").
+
+extract_type(Text, constraint) :- sub_atom(Text, _, _, _, "cannot").
+extract_type(Text, constraint) :- sub_atom(Text, _, _, _, "required").
+extract_type(Text, constraint) :- sub_atom(Text, _, _, _, "depends").
+
 extract_type(Text, note).
 
 % ============================================
@@ -132,43 +132,24 @@ extract_type(Text, note).
 % ============================================
 
 % Entry relationships
-depends_on(X, Y) :- sub_string(X, _, _, _, "depends on"), sub_string(Y, _, _, _, "depends on"), X \\= Y.
-related_to(X, Y) :- sub_string(X, _, _, _, "related to"), X \\= Y.
-similar_to(X, Y) :- sub_string(X, _, _, _, "similar to"), X \\= Y.
-contradicts(X, Y) :- sub_string(X, _, _, _, "instead of"), sub_string(Y, _, _, _, "instead of"), X \\= Y.
-
-% ============================================
-% MEMORY EXTRACTION QUERIES
-% ============================================
-
-% Main extraction: returns all important memories from context
-extract_memories(Text, Memories) :- 
-    findall(memory(Type, Content), extract_type(Text, Type), Memories).
-
-% Get importance score (1-5)
-importance_score(decision, 5).
-importance_score(convention, 4).
-importance_score(pattern, 4).
-importance_score(constraint, 5).
-importance_score(error, 2).
-importance_score(note, 1).
+related(source, target) :- sub_atom(source, _, _, _, "depends").
+related(source, target) :- sub_atom(source, _, _, _, "related to").
 
 % ============================================
 % QUERY PREDICATES FOR AGENTS
 % ============================================
 
-% Query: Is X important?
-q_important(X) :- important(X).
+% Query: Is Type important?
+q_important(Type) :- important(Type).
 
-% Query: Should X be preserved?
-q_preserve(X) :- preserve(X).
+% Query: Should Type be preserved?
+q_preserve(Type) :- preserve(Type).
 
-% Query: What's the importance of X?
-q_importance(X, Score) :- important(X), importance_score(X, Score).
+% Query: Get importance score
+q_importance(Type, Score) :- important(Type), importance_score(Type, Score).
 
 % Query: Find related entries
-q_related(X, Y) :- related_to(X, Y).
-q_related(X, Y) :- depends_on(X, Y).
+q_related(Source, Target) :- related(Source, Target).
 """
 
 
@@ -185,13 +166,14 @@ class PrologMemory:
         """Initialize Prolog with memory rules."""
         try:
             self.prolog = get_prolog()()
-            for rule in PROLOG_MEMORY_RULES.split("\n"):
-                rule = rule.strip()
-                if rule and not rule.startswith("%") and not rule.startswith("=="):
-                    try:
-                        self.prolog.assertz(rule)
-                    except Exception:
-                        pass
+            # Use consult to load all rules at once
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".pl", delete=False) as f:
+                f.write(PROLOG_MEMORY_RULES)
+                temp_path = f.name
+
+            self.prolog.consult(temp_path)
             self._initialized = True
         except Exception as e:
             print(f"Prolog init error: {e}")
