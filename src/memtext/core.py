@@ -85,7 +85,11 @@ def query_context(query: str, limit: int = 5):
         return []
 
     results = []
-    regex = re.compile(query, re.IGNORECASE)
+    try:
+        regex = re.compile(query, re.IGNORECASE)
+    except re.error as e:
+        print(f"Invalid regex query: {e}")
+        return []
 
     for file_path in ctx_dir.rglob("*.md"):
         try:
@@ -203,8 +207,13 @@ def synthesize_memories(source_text: str = None, recent_only: bool = True):
     Extract high-value memories from raw logs.
     If source_text is provided, it distills that text.
     Otherwise, it scans recent session logs for '@memory' markers.
+
+    Returns:
+        int: Count of new memories created
     """
     from memtext.db import add_entry, entry_exists
+
+    count = 0
 
     if source_text:
         # If text is provided, we assume it's already a distilled memory or needs parsing
@@ -213,9 +222,14 @@ def synthesize_memories(source_text: str = None, recent_only: bool = True):
         if match:
             title, content, tags_str = match.groups()
             tags = [t.strip() for t in tags_str.split(",")]
-            return add_entry(title, content, "memory", tags=tags)
+            entry_id = add_entry(title, content, "memory", tags=tags)
+            if entry_id > 0:
+                count = 1
         else:
-            return add_entry("Synthesized Memory", source_text, "memory")
+            entry_id = add_entry("Synthesized Memory", source_text, "memory")
+            if entry_id > 0:
+                count = 1
+        return count
 
     # If no text, scan for @memory markers in filesystem logs
     ctx_dir = get_context_dir()
@@ -229,7 +243,6 @@ def synthesize_memories(source_text: str = None, recent_only: bool = True):
     if recent_only:
         log_files = log_files[:2]
 
-    count = 0
     for log_file in log_files:
         content = log_file.read_text()
         # Look for @memory: Title - Content

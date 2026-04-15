@@ -149,6 +149,23 @@ def update_entry(entry_id: int, **kwargs) -> bool:
     cursor = conn.cursor()
     cursor.execute(f"UPDATE context_entries SET {fields} WHERE id=?", values)
     conn.commit()
+
+    # Update FTS if title or content changed
+    if "title" in kwargs or "content" in kwargs:
+        cursor.execute(
+            "SELECT title, content, entry_type, tags FROM context_entries WHERE id=?",
+            (entry_id,),
+        )
+        row = cursor.fetchone()
+        if row:
+            # Delete old FTS entry and insert new one
+            cursor.execute("DELETE FROM context_fts WHERE rowid = ?", (entry_id,))
+            cursor.execute(
+                "INSERT INTO context_fts (title, content, entry_type, tags) VALUES (?, ?, ?, ?)",
+                (row[0], row[1], row[2], row[3] or ""),
+            )
+            conn.commit()
+
     conn.close()
     return cursor.rowcount > 0
 
@@ -169,12 +186,32 @@ def query_entries(
     min_importance: int = None,
     tags: str = None,
     limit: int = 10,
+    use_fts: bool = True,
 ) -> list:
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
+    # Use FTS5 for text search if available
+    if search_text and use_fts:
+        try:
+            fts_query = f"{search_text}*"
+            cursor.execute(
+                """SELECT e.* FROM context_entries e
+                   JOIN context_fts f ON e.id = f.rowid
+                   WHERE context_fts MATCH ?
+                   ORDER BY rank
+                   LIMIT ?""",
+                (fts_query, limit),
+            )
+            rows = cursor.fetchall()
+            conn.close()
+            return [dict(row) for row in rows]
+        except sqlite3.Error:
+            pass
+
+    # Fallback to LIKE search
     query = "SELECT * FROM context_entries WHERE 1=1"
     params = []
 
@@ -265,7 +302,7 @@ def list_projects() -> list:
 
 
 def scan_for_projects(root_path: str = None) -> list:
-    root_path = root_path or str(Path.home())
+    root_path = root_path or str(Path.cwd())
     projects = []
     for path in Path(root_path).rglob(".context"):
         if path.is_dir():

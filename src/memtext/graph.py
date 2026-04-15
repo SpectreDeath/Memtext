@@ -95,19 +95,55 @@ def get_related_entries(entry_id: int, limit: int = 10) -> List[Dict]:
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
+    # First get target IDs from relationships
     cursor.execute(
-        """SELECT r.*, e.title, e.content, e.entry_type
+        """SELECT r.target_id, r.relationship_type, r.strength
            FROM relationships r
-           JOIN context_entries e ON r.target_id = e.id
            WHERE r.source_id = ?
            ORDER BY r.strength DESC
            LIMIT ?""",
         (entry_id, limit),
     )
-
-    rows = cursor.fetchall()
+    rel_rows = cursor.fetchall()
     conn.close()
-    return [dict(row) for row in rows]
+
+    if not rel_rows:
+        return []
+
+    # Then fetch entry details from main DB
+    from memtext.db import get_db_path
+
+    db_path = get_db_path()
+    if not db_path.exists():
+        return []
+
+    target_ids = [r["target_id"] for r in rel_rows]
+    placeholders = ",".join("?" * len(target_ids))
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute(
+        f"""SELECT id, title, content, entry_type, importance, tags, created_at
+            FROM context_entries
+            WHERE id IN ({placeholders})""",
+        target_ids,
+    )
+
+    entry_rows = {row["id"]: dict(row) for row in cursor.fetchall()}
+    conn.close()
+
+    # Merge relationship data with entry data
+    results = []
+    for rel in rel_rows:
+        if rel["target_id"] in entry_rows:
+            entry = entry_rows[rel["target_id"]]
+            entry["relationship_type"] = rel["relationship_type"]
+            entry["strength"] = rel["strength"]
+            results.append(entry)
+
+    return results
 
 
 def auto_detect_relationships(content_pairs: List[tuple]) -> List[tuple]:
