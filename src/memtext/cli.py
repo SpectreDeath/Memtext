@@ -418,7 +418,10 @@ def main(argv=None):
             try:
                 from memtext.collaboration import ProjectBundle
 
-                bundle = ProjectBundle(Path.cwd() / "context")
+                output_path = (
+                    Path(args.output) if args.output else Path.cwd() / "context"
+                )
+                bundle = ProjectBundle(output_path)
                 output = bundle.export()
                 print(f"Exported to: {output.name}")
                 logger.info(f"Exported bundle to {output}")

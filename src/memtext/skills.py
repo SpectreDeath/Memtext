@@ -18,6 +18,11 @@ from memtext.memory_logic import (
     MemorySynthesizer,
     check_prolog_available,
 )
+from memtext.prolog_memory import (
+    query_memory,
+    classify_memory,
+    preserve_memory,
+)
 
 
 def context_manager(action: dict) -> dict:
@@ -205,5 +210,34 @@ def context_offloader(action: dict) -> dict:
 
         deps = offloader.identify_dependencies(entries)
         return {"status": "success", "dependencies": deps}
+
+    return {"status": "error", "message": "Unknown action"}
+
+
+def prolog_memory_skill(action: dict) -> dict:
+    """Prolog-based memory classification and preservation.
+
+    Actions:
+        - query: Query Prolog engine (e.g., "important(X)")
+        - classify: Classify an entry dict
+        - preserve: Select entries to preserve
+    """
+    action_type = action.get("action", "query")
+
+    if action_type == "query":
+        goal = action.get("goal", "important(X)")
+        results = query_memory(goal)
+        return {"status": "success", "results": results}
+
+    elif action_type == "classify":
+        entry = action.get("entry", {})
+        result = classify_memory(entry)
+        return {"status": "success", "classification": result}
+
+    elif action_type == "preserve":
+        entries = action.get("entries", [])
+        max_count = action.get("max_count", 20)
+        preserved = preserve_memory(entries, max_count)
+        return {"status": "success", "preserved": preserved}
 
     return {"status": "error", "message": "Unknown action"}
