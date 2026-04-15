@@ -190,6 +190,32 @@ def main(argv=None):
         "--save", action="store_true", help="Save extracted memories to DB"
     )
 
+    export_parser = subparsers.add_parser(
+        "export",
+        help="Export project context to bundle",
+        description="Export context to a .mtbundle file for sharing",
+    )
+    export_parser.add_argument(
+        "--output", help="Output filename (default: context.mtbundle)"
+    )
+
+    import_parser = subparsers.add_parser(
+        "import",
+        help="Import project context from bundle",
+        description="Import context from a .mtbundle file",
+    )
+    import_parser.add_argument("file", help="Bundle file to import")
+    import_parser.add_argument(
+        "--overwrite", action="store_true", help="Overwrite existing entries"
+    )
+
+    share_parser = subparsers.add_parser(
+        "share",
+        help="Share an entry across projects",
+        description="Mark an entry as shared for cross-project access",
+    )
+    share_parser.add_argument("entry_id", type=int, help="Entry ID to share")
+
     serve_parser = subparsers.add_parser(
         "serve",
         help="Start API server",
@@ -358,6 +384,46 @@ def main(argv=None):
                         accesses = entry.get("access_count", 0)
                         print(f"{i}. [{entry['entry_type']}] {entry['title']}")
                         print(f"   importance={imp}, accesses={accesses}")
+
+        elif args.command == "export":
+            try:
+                from memtext.collaboration import ProjectBundle
+
+                bundle = ProjectBundle(Path.cwd() / "context")
+                output = bundle.export()
+                print(f"Exported to: {output.name}")
+                logger.info(f"Exported bundle to {output}")
+            except Exception as e:
+                raise DatabaseError(f"Export failed: {e}")
+
+        elif args.command == "import":
+            try:
+                from memtext.collaboration import ProjectBundle
+
+                bundle_file = Path(args.file)
+                if not bundle_file.exists():
+                    raise ValidationError(f"File not found: {args.file}")
+                bundle = ProjectBundle(bundle_file)
+                count = bundle.import_(overwrite=args.overwrite)
+                print(f"Imported {count} entries")
+                logger.info(f"Imported {count} entries from {bundle_file.name}")
+            except Exception as e:
+                raise DatabaseError(f"Import failed: {e}")
+
+        elif args.command == "share":
+            require_context_dir()
+            try:
+                from memtext.db import make_shared
+
+                entry_id = args.entry_id
+                success = make_shared(entry_id)
+                if success:
+                    print(f"Entry {entry_id} marked as shared")
+                    logger.info(f"Marked entry {entry_id} as shared")
+                else:
+                    print(f"Entry {entry_id} not found")
+            except Exception as e:
+                raise DatabaseError(f"Share failed: {e}")
 
         elif args.command == "serve":
             try:

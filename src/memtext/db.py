@@ -24,9 +24,12 @@ def init_db() -> Path:
             tags TEXT,
             source TEXT DEFAULT 'manual',
             linked_files TEXT,
+            is_shared INTEGER DEFAULT 0,
+            project_id INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_accessed TIMESTAMP,
-            access_count INTEGER DEFAULT 0
+            access_count INTEGER DEFAULT 0,
+            FOREIGN KEY (project_id) REFERENCES projects(id)
         )
     """)
 
@@ -270,3 +273,76 @@ def scan_for_projects(root_path: str = None) -> list:
             if project_path not in [p["path"] for p in list_projects()]:
                 projects.append(project_path)
     return projects
+
+
+def add_shared_entry(
+    title: str,
+    content: str,
+    entry_type: str = "note",
+    tags: list = None,
+    importance: int = 1,
+    project_id: int = None,
+) -> int:
+    """Add a shared entry available across projects."""
+    db_path = get_db_path()
+    if not db_path.exists():
+        return -1
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO context_entries 
+               (title, content, entry_type, tags, importance, is_shared, project_id) 
+               VALUES (?, ?, ?, ?, ?, 1, ?)""",
+            (title, content, entry_type, ",".join(tags or []), importance, project_id),
+        )
+        entry_id = cursor.lastrowid
+        conn.commit()
+        update_fts(title, content, entry_type, ",".join(tags or []))
+        return entry_id
+    except sqlite3.Error:
+        return -1
+    finally:
+        if "conn" in locals():
+            conn.close()
+
+
+def get_shared_entries(project_id: int = None) -> list:
+    """Get shared entries, optionally filtered by project."""
+    db_path = get_db_path()
+    if not db_path.exists():
+        return []
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    if project_id:
+        cursor.execute(
+            "SELECT * FROM context_entries WHERE is_shared = 1 AND project_id = ? ORDER BY importance DESC",
+            (project_id,),
+        )
+    else:
+        cursor.execute(
+            "SELECT * FROM context_entries WHERE is_shared = 1 ORDER BY importance DESC"
+        )
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def make_shared(entry_id: int) -> bool:
+    """Mark an entry as shared."""
+    db_path = get_db_path()
+    if not db_path.exists():
+        return False
+
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE context_entries SET is_shared = 1 WHERE id = ?", (entry_id,))
+    conn.commit()
+    success = cursor.rowcount > 0
+    conn.close()
+    return success
