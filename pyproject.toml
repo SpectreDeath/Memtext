@@ -1,6 +1,6 @@
 [project]
 name = "memtext"
-version = "0.2.1"
+version = "0.5.0"
 description = "Context offloading for AI agents - persistent memory across sessions"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,6 +27,9 @@ prolog = [
 api = [
     "fastapi>=0.100",
     "uvicorn>=0.23",
+]
+llm = [
+    "openai>=1.0",
 ]
 
 [project.scripts]

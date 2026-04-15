@@ -216,6 +216,35 @@ def main(argv=None):
     )
     share_parser.add_argument("entry_id", type=int, help="Entry ID to share")
 
+    synthesize_ai_parser = subparsers.add_parser(
+        "synthesize-ai",
+        help="Synthesize with AI (requires LLM)",
+        description="Use LLM for intelligent memory synthesis. Supports Ollama (local) or OpenAI.",
+    )
+    synthesize_ai_parser.add_argument("--text", help="Text to synthesize")
+    synthesize_ai_parser.add_argument(
+        "--model", default="llama3", help="Model for local synthesis"
+    )
+    synthesize_ai_parser.add_argument(
+        "--rule-based", action="store_true", help="Use rule-based fallback"
+    )
+
+    retag_parser = subparsers.add_parser(
+        "retag",
+        help="Auto-tag entries",
+        description="Automatically tag entries based on content",
+    )
+    retag_parser.add_argument("--entry-id", type=int, help="Entry ID to retag")
+    retag_parser.add_argument("--all", action="store_true", help="Retag all entries")
+
+    link_parser = subparsers.add_parser(
+        "link",
+        help="Build relationship graph",
+        description="Auto-detect relationships between entries",
+    )
+    link_parser.add_argument("--entry-id", type=int, help="Entry ID to find links for")
+    link_parser.add_argument("--limit", type=int, default=5, help="Max results")
+
     serve_parser = subparsers.add_parser(
         "serve",
         help="Start API server",
@@ -424,6 +453,97 @@ def main(argv=None):
                     print(f"Entry {entry_id} not found")
             except Exception as e:
                 raise DatabaseError(f"Share failed: {e}")
+
+        elif args.command == "synthesize-ai":
+            try:
+                from memtext.llm import (
+                    synthesize,
+                    synthesize_rule_based,
+                    check_llm_available,
+                )
+
+                available = check_llm_available()
+                print(f"LLM availability: {available}")
+
+                if args.rule_based:
+                    text = args.text or "Sample context for testing"
+                    result = synthesize_rule_based(text)
+                    print(f"\nSummary: {result.summary}")
+                    print(f"Memories: {len(result.memories)}")
+                    print(f"Tags: {result.tags}")
+                else:
+                    if args.text:
+                        result = synthesize(args.text)
+                        if result:
+                            print(f"\nSummary: {result.summary}")
+                            print(f"Memories: {len(result.memories)}")
+                            for mem in result.memories:
+                                print(f"  - {mem.get('title')}")
+                            print(f"Tags: {result.tags}")
+                        else:
+                            print(
+                                "No LLM available. Install openai package or run Ollama."
+                            )
+                    else:
+                        print("No text provided. Use --text or --rule-based")
+            except ImportError:
+                print("Error: LLM package not installed.")
+                print("Run: pip install memtext[llm]")
+                return 5
+
+        elif args.command == "retag":
+            try:
+                from memtext.llm import AutoTagger
+
+                require_context_dir()
+
+                tagger = AutoTagger()
+
+                if args.all:
+                    entries = list_entries(limit=100)
+                    for entry in entries:
+                        tags = tagger.tag_content(entry.get("content", ""))
+                        if tags:
+                            print(f"Entry {entry['id']}: {', '.join(tags)}")
+                elif args.entry_id:
+                    from memtext.db import get_entry
+
+                    entry = get_entry(args.entry_id)
+                    if entry:
+                        tags = tagger.tag_content(entry.get("content", ""))
+                        print(f"Entry {args.entry_id} tags: {', '.join(tags)}")
+                    else:
+                        print(f"Entry {args.entry_id} not found")
+                else:
+                    print("Use --entry-id or --all")
+            except Exception as e:
+                raise DatabaseError(f"Retag failed: {e}")
+
+        elif args.command == "link":
+            try:
+                require_context_dir()
+                from memtext.graph import (
+                    get_related_entries,
+                    build_relationships_from_entries,
+                    init_graph,
+                )
+
+                init_graph()
+
+                if args.entry_id:
+                    related = get_related_entries(args.entry_id, args.limit)
+                    if related:
+                        print(f"Related to entry {args.entry_id}:")
+                        for r in related:
+                            print(f"  [{r.get('entry_type')}] {r.get('title')}")
+                    else:
+                        print("No relationships found")
+                else:
+                    entries = list_entries(limit=50)
+                    count = build_relationships_from_entries(entries)
+                    print(f"Built {count} relationships")
+            except Exception as e:
+                raise DatabaseError(f"Link failed: {e}")
 
         elif args.command == "serve":
             try:
