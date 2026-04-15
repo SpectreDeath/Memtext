@@ -19,6 +19,7 @@ from memtext.db import (
     scan_for_projects,
     get_db_path,
 )
+from memtext import logging_config
 
 logger = logging.getLogger("memtext")
 
@@ -300,6 +301,10 @@ def main(argv=None):
             validate_entry_type(args.type)
             validate_importance(args.importance)
             content = args.content or args.text
+            if not args.content:
+                print(
+                    "Note: Using title as content. Use --content to specify separate content."
+                )
             try:
                 entry_id = add_entry(
                     args.text, content, args.type, args.tags, importance=args.importance

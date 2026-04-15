@@ -158,11 +158,17 @@ def auto_detect_relationships(content_pairs: List[tuple]) -> List[tuple]:
     relationships = []
     content_by_id = {cid: content.lower() for cid, content in content_pairs}
 
+    # Extract key terms from each entry (first few words or important nouns)
+    key_terms = {}
+    for entry_id, content in content_pairs:
+        words = content.lower().split()[:10]
+        key_terms[entry_id] = set(words)
+
     keywords = {
         "depends_on": ["depends on", "requires", "needs", "build on"],
         "similar_to": ["similar to", "like", "also", "same"],
         "contrast_with": ["instead of", "rather than", "unlike", "but"],
-        "related_to": ["related to", "see also", "see", "关联"],
+        "related_to": ["related to", "see also", "see"],
     }
 
     for id1, content1 in content_pairs:
@@ -170,11 +176,29 @@ def auto_detect_relationships(content_pairs: List[tuple]) -> List[tuple]:
             if id1 >= id2:
                 continue
 
+            content1_lower = content1.lower()
+            content2_lower = content2.lower()
+
+            # Check if content1 has keywords and references content2's key terms
             for rel_type, keywords_list in keywords.items():
-                if any(kw in content1 for kw in keywords_list):
-                    if any(kw in content2 for kw in keywords_list):
-                        relationships.append((id1, id2, rel_type, 0.8))
-                        break
+                has_keyword = any(kw in content1_lower for kw in keywords_list)
+                references_other = any(
+                    term in content1_lower for term in key_terms.get(id2, [])
+                )
+
+                if has_keyword and references_other:
+                    relationships.append((id1, id2, rel_type, 0.8))
+                    break
+
+                # Also check reverse for bi-directional relationships
+                has_keyword_rev = any(kw in content2_lower for kw in keywords_list)
+                references_other_rev = any(
+                    term in content2_lower for term in key_terms.get(id1, [])
+                )
+
+                if has_keyword_rev and references_other_rev:
+                    relationships.append((id2, id1, rel_type, 0.8))
+                    break
 
     return relationships
 
