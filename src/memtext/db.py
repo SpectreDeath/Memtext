@@ -2,8 +2,6 @@
 
 from pathlib import Path
 import sqlite3
-import os
-from datetime import datetime
 
 
 def get_db_path() -> Path:

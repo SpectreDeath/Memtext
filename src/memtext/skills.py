@@ -11,9 +11,12 @@ from memtext.db import (
     list_projects,
     scan_for_projects,
 )
-from memtext.core import (
-    synthesize_memories,
-    SYNTHESIS_PROMPT
+from memtext.core import synthesize_memories, SYNTHESIS_PROMPT
+from memtext.memory_logic import (
+    DecisionExtractor,
+    ContextOffloader,
+    MemorySynthesizer,
+    check_prolog_available,
 )
 
 
@@ -124,5 +127,83 @@ def context_synthesizer(action: dict) -> dict:
         all_logs = action.get("all", False)
         count = synthesize_memories(source_text=text, recent_only=not all_logs)
         return {"status": "success", "new_memories": count}
+
+    return {"status": "error", "message": "Unknown action"}
+
+
+def context_offloader(action: dict) -> dict:
+    """Prolog-based context offloading and memory extraction."""
+    action_type = action.get("action", "extract")
+
+    if action_type == "check_prolog":
+        return {"status": "success", "available": check_prolog_available()}
+
+    elif action_type == "extract":
+        text = action.get("text", "")
+        extractor = DecisionExtractor()
+        decisions = extractor.extract_decisions(text)
+        conventions = extractor.extract_conventions(text)
+        patterns = extractor.extract_patterns(text)
+        constraints = extractor.extract_constraints(text)
+
+        return {
+            "status": "success",
+            "extracted": {
+                "decisions": decisions,
+                "conventions": conventions,
+                "patterns": patterns,
+                "constraints": constraints,
+            },
+        }
+
+    elif action_type == "rank":
+        entries = action.get("entries", [])
+        offloader = ContextOffloader()
+        ranked = offloader.rank_entries(entries)
+        return {"status": "success", "ranked": ranked}
+
+    elif action_type == "select":
+        entries = action.get("entries", [])
+        max_tokens = action.get("max_tokens")
+        offloader = ContextOffloader()
+        selected = offloader.select_for_preservation(entries, max_tokens)
+        return {"status": "success", "selected": selected}
+
+    elif action_type == "synthesize":
+        context_text = action.get("text", "")
+        synthesizer = MemorySynthesizer()
+        memories = synthesizer.synthesize(context_text)
+        summary = synthesizer.generate_summary(memories)
+
+        if action.get("save", False):
+            count = 0
+            for mem in memories:
+                add_entry(
+                    mem.get("title"),
+                    mem.get("content"),
+                    mem.get("entry_type"),
+                    mem.get("tags"),
+                    importance=mem.get("importance", 1),
+                )
+                count += 1
+            return {"status": "success", "saved": count, "summary": summary}
+
+        return {"status": "success", "memories": memories, "summary": summary}
+
+    elif action_type == "dependencies":
+        entries = action.get("entries", [])
+        delete_ids = action.get("delete_ids", [])
+
+        if not entries:
+            return {"status": "error", "message": "entries required"}
+
+        offloader = ContextOffloader()
+
+        if delete_ids:
+            cascade = offloader.get_cascade_deletion_order(entries, delete_ids)
+            return {"status": "success", "cascade_deletion": cascade}
+
+        deps = offloader.identify_dependencies(entries)
+        return {"status": "success", "dependencies": deps}
 
     return {"status": "error", "message": "Unknown action"}

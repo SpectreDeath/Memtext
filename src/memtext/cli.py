@@ -1,6 +1,4 @@
 import argparse
-import sys
-from pathlib import Path
 
 from memtext.core import (
     init_context,
@@ -13,7 +11,6 @@ from memtext.db import (
     init_db,
     add_entry,
     list_entries,
-    query_entries,
     register_project,
     list_projects,
     scan_for_projects,
@@ -58,7 +55,7 @@ def main():
         "--scan", action="store_true", help="Scan for projects"
     )
 
-    migrate_parser = subparsers.add_parser("migrate", help="Migrate v0.1.x to v0.2.0")
+    subparsers.add_parser("migrate", help="Migrate v0.1.x to v0.2.0")
 
     synth_parser = subparsers.add_parser(
         "synthesize",
@@ -71,6 +68,24 @@ def main():
     )
     synth_parser.add_argument(
         "--all", action="store_true", help="Scan all logs (default is recent only)"
+    )
+
+    offload_parser = subparsers.add_parser(
+        "offload",
+        help="Context offloading and extraction",
+        description="Extract and rank memories from context. Use for context window management.",
+    )
+    offload_parser.add_argument(
+        "--extract",
+        action="store_true",
+        help="Extract decisions/conventions/patterns from text",
+    )
+    offload_parser.add_argument("--text", help="Text to analyze (for --extract)")
+    offload_parser.add_argument(
+        "--rank", action="store_true", help="Rank entries by preservation priority"
+    )
+    offload_parser.add_argument(
+        "--save", action="store_true", help="Save extracted memories to DB"
     )
 
     args = parser.parse_args()
@@ -114,6 +129,67 @@ def main():
     elif args.command == "synthesize":
         count = synthesize_memories(source_text=args.text, recent_only=not args.all)
         print(f"Synthesized {count} new memories from logs")
+    elif args.command == "offload":
+        from memtext.memory_logic import (
+            DecisionExtractor,
+            ContextOffloader,
+            MemorySynthesizer,
+        )
+        from memtext.db import query_entries
+
+        if args.extract:
+            if not args.text:
+                print("Error: --text required for --extract")
+                return
+
+            extractor = DecisionExtractor()
+            decisions = extractor.extract_decisions(args.text)
+            conventions = extractor.extract_conventions(args.text)
+            patterns = extractor.extract_patterns(args.text)
+            constraints = extractor.extract_constraints(args.text)
+
+            print(f"## Decisions ({len(decisions)})")
+            for d in decisions:
+                print(f"- {d['content']}")
+
+            print(f"\n## Conventions ({len(conventions)})")
+            for c in conventions:
+                print(f"- {c['content']}")
+
+            print(f"\n## Patterns ({len(patterns)})")
+            for p in patterns:
+                print(f"- {p['content']}")
+
+            print(f"\n## Constraints ({len(constraints)})")
+            for c in constraints:
+                print(f"- {c['content']}")
+
+            if args.save:
+                synthesizer = MemorySynthesizer()
+                memories = synthesizer.synthesize(args.text)
+                for mem in memories:
+                    add_entry(
+                        mem.get("title"),
+                        mem.get("content"),
+                        mem.get("entry_type"),
+                        mem.get("tags"),
+                        importance=mem.get("importance", 1),
+                    )
+                print(f"\nSaved {len(memories)} memories to database")
+
+        elif args.rank:
+            entries = query_entries(limit=100)
+            offloader = ContextOffloader()
+            ranked = offloader.rank_entries(entries)
+
+            print("# Ranked for Preservation")
+            print("Top entries by importance:\n")
+            for i, entry in enumerate(ranked[:20], 1):
+                imp = entry.get("importance", 1)
+                accesses = entry.get("access_count", 0)
+                print(f"{i}. [{entry['entry_type']}] {entry['title']}")
+                print(f"   importance={imp}, accesses={accesses}")
+
     else:
         parser.print_help()
 
