@@ -190,6 +190,17 @@ def main(argv=None):
         "--save", action="store_true", help="Save extracted memories to DB"
     )
 
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Start API server",
+        description="Start the MemText REST API server. Requires: pip install memtext[api]",
+    )
+    serve_parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
+    serve_parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
+    serve_parser.add_argument(
+        "--reload", action="store_true", help="Enable auto-reload"
+    )
+
     args = parser.parse_args(argv)
 
     setup_logging(args.verbose)
@@ -347,6 +358,17 @@ def main(argv=None):
                         accesses = entry.get("access_count", 0)
                         print(f"{i}. [{entry['entry_type']}] {entry['title']}")
                         print(f"   importance={imp}, accesses={accesses}")
+
+        elif args.command == "serve":
+            try:
+                from memtext.api import run as api_run
+
+                logger.info(f"Starting API server on {args.host}:{args.port}")
+                api_run(host=args.host, port=args.port, reload=args.reload)
+            except ImportError:
+                print("Error: FastAPI not installed.")
+                print("Run: pip install memtext[api]")
+                return 5
 
         else:
             parser.print_help()
