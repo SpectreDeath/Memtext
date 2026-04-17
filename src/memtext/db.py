@@ -245,16 +245,14 @@ def entry_exists(title: str, entry_type: str = None) -> bool:
     return exists
 
 
-def update_fts(
-    title: str, content: str, entry_type: str, tags: str, parent_tag: str = None
-):
+def update_fts(title: str, content: str, entry_type: str, tags: str):
     db_path = get_db_path()
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO context_fts (title, content, entry_type, tags, parent_tag) VALUES (?, ?, ?, ?, ?)",
-            (title, content, entry_type, tags or "", parent_tag),
+            "INSERT INTO context_fts (title, content, entry_type, tags) VALUES (?, ?, ?, ?)",
+            (title, content, entry_type, tags or ""),
         )
         conn.commit()
     except sqlite3.Error as e:
@@ -348,7 +346,7 @@ def update_entry(entry_id: int, **kwargs) -> bool:
     # Update FTS if title or content changed
     if "title" in kwargs or "content" in kwargs:
         cursor.execute(
-            "SELECT title, content, entry_type, tags, parent_tag FROM context_entries WHERE id=?",
+            "SELECT title, content, entry_type, tags FROM context_entries WHERE id=?",
             (entry_id,),
         )
         row = cursor.fetchone()
@@ -356,8 +354,8 @@ def update_entry(entry_id: int, **kwargs) -> bool:
             # Delete old FTS entry and insert new one
             cursor.execute("DELETE FROM context_fts WHERE rowid = ?", (entry_id,))
             cursor.execute(
-                "INSERT INTO context_fts (title, content, entry_type, tags, parent_tag) VALUES (?, ?, ?, ?, ?)",
-                (row[0], row[1], row[2], row[3] or "", row[4]),
+                "INSERT INTO context_fts (title, content, entry_type, tags) VALUES (?, ?, ?, ?)",
+                (row[0], row[1], row[2], row[3] or ""),
             )
             conn.commit()
 
