@@ -1,6 +1,6 @@
 [project]
 name = "memtext"
-version = "0.5.0"
+version = "0.6.0"
 description = "Context offloading for AI agents - persistent memory across sessions"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,12 +13,17 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
-dependencies = []
+dependencies = [
+    "cryptography>=41.0",
+    "slowapi>=0.1",
+    "gitpython>=3.1",
+]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "pytest-timeout>=2.2",
     "ruff>=0.1.0",
 ]
 prolog = [
@@ -31,6 +36,18 @@ api = [
 llm = [
     "openai>=1.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=src --cov-report=term-missing --cov-fail-under=70"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
 
 [project.scripts]
 memtext = "memtext.cli:main"

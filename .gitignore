@@ -1,5 +1,6 @@
 *.pyc
 __pycache__/
+tests/__pycache__/
 dist/
 build/
 *.egg-info/
@@ -9,3 +10,5 @@ build/
 .context/
 *.db
 *.egg-info/
+.pytest_cache/
+.ruff_cache/

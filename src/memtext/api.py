@@ -18,9 +18,13 @@ from fastapi import (
     Header,
     WebSocket,
     WebSocketDisconnect,
+    Request,
 )
 from pydantic import BaseModel, Field
 import uvicorn
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 
 class EntryCreate(BaseModel):
@@ -82,6 +86,9 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# Rate limiter setup
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -96,6 +103,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
     """Verify API key from header."""
@@ -105,6 +115,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
 
 
 @app.get("/health", response_model=HealthResponse)
+@limiter.exempt  # Health check should be exempt
 async def health():
     return HealthResponse(
         status="healthy",
@@ -114,7 +125,9 @@ async def health():
 
 
 @app.get("/entries")
+@limiter.limit("100/minute")
 async def list_entries(
+    request: Request,
     entry_type: Optional[str] = Query(None),
     limit: int = Query(10, le=100),
     x_api_key: Optional[str] = Header(None),
@@ -145,7 +158,12 @@ async def list_entries(
 
 
 @app.get("/entries/{entry_id}")
-async def get_entry(entry_id: int, x_api_key: Optional[str] = Header(None)):
+@limiter.limit("200/minute")
+async def get_entry(
+    request: Request,
+    entry_id: int,
+    x_api_key: Optional[str] = Header(None),
+):
     """Get a single entry by ID."""
     await verify_api_key(x_api_key)
     from memtext.db import get_entry, update_entry, get_db_path
@@ -178,7 +196,12 @@ async def get_entry(entry_id: int, x_api_key: Optional[str] = Header(None)):
 
 
 @app.post("/entries", status_code=201)
-async def create_entry(entry: EntryCreate, x_api_key: Optional[str] = Header(None)):
+@limiter.limit("60/minute")
+async def create_entry(
+    request: Request,
+    entry: EntryCreate,
+    x_api_key: Optional[str] = Header(None),
+):
     """Create a new context entry."""
     await verify_api_key(x_api_key)
     from memtext.db import add_entry, get_db_path
@@ -200,6 +223,12 @@ async def create_entry(entry: EntryCreate, x_api_key: Optional[str] = Header(Non
     if entry_id < 0:
         raise HTTPException(status_code=409, detail="Entry already exists")
 
+    # Trigger webhooks for create event
+    from memtext.db import trigger_webhook
+
+    entry_data = {"id": entry_id, "title": entry.title, "entry_type": entry.entry_type}
+    trigger_webhook("create", entry_data)
+
     await manager.broadcast(
         {
             "type": "CREATE",
@@ -217,8 +246,12 @@ async def create_entry(entry: EntryCreate, x_api_key: Optional[str] = Header(Non
 
 
 @app.put("/entries/{entry_id}")
+@limiter.limit("60/minute")
 async def update_entry_endpoint(
-    entry_id: int, entry: EntryUpdate, x_api_key: Optional[str] = Header(None)
+    request: Request,
+    entry_id: int,
+    entry: EntryUpdate,
+    x_api_key: Optional[str] = Header(None),
 ):
     """Update an existing entry."""
     await verify_api_key(x_api_key)
@@ -245,6 +278,11 @@ async def update_entry_endpoint(
 
     if fields:
         update_entry(entry_id, **fields)
+        # Trigger webhooks for update event
+        from memtext.db import trigger_webhook
+
+        updated = get_entry(entry_id)
+        trigger_webhook("update", updated)
         await manager.broadcast(
             {
                 "type": "UPDATE",
@@ -262,7 +300,12 @@ async def update_entry_endpoint(
 
 
 @app.delete("/entries/{entry_id}")
-async def delete_entry_endpoint(entry_id: int, x_api_key: Optional[str] = Header(None)):
+@limiter.limit("30/minute")
+async def delete_entry_endpoint(
+    request: Request,
+    entry_id: int,
+    x_api_key: Optional[str] = Header(None),
+):
     """Delete an entry."""
     await verify_api_key(x_api_key)
     from memtext.db import delete_entry, get_entry, get_db_path
@@ -275,6 +318,11 @@ async def delete_entry_endpoint(entry_id: int, x_api_key: Optional[str] = Header
         raise HTTPException(status_code=404, detail="Entry not found")
 
     delete_entry(entry_id)
+
+    # Trigger webhooks for delete event
+    from memtext.db import trigger_webhook
+
+    trigger_webhook("delete", {"id": entry_id, "title": existing["title"]})
 
     await manager.broadcast(
         {
