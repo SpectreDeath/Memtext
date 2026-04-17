@@ -227,7 +227,9 @@ def main(argv=None):
         description="Flag an entry for follow-up review at a specific time",
     )
     remind_parser.add_argument("entry_id", type=int, help="Entry ID")
-    remind_parser.add_argument("--at", required=True, help="Reminder time (YYYY-MM-DD HH:MM)")
+    remind_parser.add_argument(
+        "--at", required=True, help="Reminder time (YYYY-MM-DD HH:MM)"
+    )
     remind_parser.add_argument("--message", help="Reminder message")
 
     reminders_parser = subparsers.add_parser(
@@ -273,14 +275,20 @@ def main(argv=None):
     )
     template_subparsers = template_parser.add_subparsers(dest="template_command")
 
-    template_add_parser = template_subparsers.add_parser("add", help="Create a new template")
+    template_add_parser = template_subparsers.add_parser(
+        "add", help="Create a new template"
+    )
     template_add_parser.add_argument("name", help="Template name")
     template_add_parser.add_argument("--description", help="Template description")
     template_add_parser.add_argument("--type", default="note", help="Entry type")
     template_add_parser.add_argument("--fields", help="JSON schema for fields")
 
-    template_list_parser = template_subparsers.add_parser("list", help="List all templates")
-    template_show_parser = template_subparsers.add_parser("show", help="Show template details")
+    template_list_parser = template_subparsers.add_parser(
+        "list", help="List all templates"
+    )
+    template_show_parser = template_subparsers.add_parser(
+        "show", help="Show template details"
+    )
     template_show_parser.add_argument("name", help="Template name")
 
     synthesize_ai_parser = subparsers.add_parser(
@@ -322,8 +330,12 @@ def main(argv=None):
         help="Generate graph visualization",
         description="Create an interactive HTML force graph of entry relationships",
     )
-    graph_parser.add_argument("--output", default="memtext_graph.html", help="Output HTML file")
-    graph_parser.add_argument("--limit", type=int, default=100, help="Max nodes to include")
+    graph_parser.add_argument(
+        "--output", default="memtext_graph.html", help="Output HTML file"
+    )
+    graph_parser.add_argument(
+        "--limit", type=int, default=100, help="Max nodes to include"
+    )
     link_parser.add_argument("--entry-id", type=int, help="Entry ID to find links for")
     link_parser.add_argument("--limit", type=int, default=5, help="Max results")
 
@@ -346,7 +358,9 @@ def main(argv=None):
         help="Create a database backup",
         description="Create a backup of the memtext database",
     )
-    backup_parser.add_argument("--type", default="manual", choices=["manual", "scheduled"], help="Backup type")
+    backup_parser.add_argument(
+        "--type", default="manual", choices=["manual", "scheduled"], help="Backup type"
+    )
 
     backup_list_parser = subparsers.add_parser(
         "backup-list",
@@ -370,7 +384,12 @@ def main(argv=None):
 
     wh_add_parser = webhook_subparsers.add_parser("add", help="Add a new webhook")
     wh_add_parser.add_argument("url", help="Webhook URL")
-    wh_add_parser.add_argument("--event", default="all", choices=["create", "update", "delete", "all"], help="Event type")
+    wh_add_parser.add_argument(
+        "--event",
+        default="all",
+        choices=["create", "update", "delete", "all"],
+        help="Event type",
+    )
     wh_add_parser.add_argument("--secret", help="Optional secret for signing")
 
     wh_list_parser = webhook_subparsers.add_parser("list", help="List webhooks")
@@ -378,12 +397,18 @@ def main(argv=None):
     wh_remove_parser.add_argument("webhook_id", type=int, help="Webhook ID")
     wh_test_parser = webhook_subparsers.add_parser("test", help="Test a webhook")
     wh_test_parser.add_argument("webhook_id", type=int, help="Webhook ID")
-    restore_parser.add_argument("backup_id", nargs="?", type=int, help="Backup ID to restore")
-    restore_parser.add_argument("--file", help="Restore from a specific backup file path")
+    restore_parser.add_argument(
+        "backup_id", nargs="?", type=int, help="Backup ID to restore"
+    )
+    restore_parser.add_argument(
+        "--file", help="Restore from a specific backup file path"
+    )
     sync_parser.add_argument("--push", action="store_true", help="Push to remote")
     sync_parser.add_argument("--pull", action="store_true", help="Pull from remote")
     sync_parser.add_argument("--remote", help="Set remote URL")
-    sync_parser.add_argument("--auto", action="store_true", help="Enable auto-sync on changes")
+    sync_parser.add_argument(
+        "--auto", action="store_true", help="Enable auto-sync on changes"
+    )
     sync_parser.add_argument("--no-auto", action="store_true", help="Disable auto-sync")
     sync_parser.add_argument("--status", action="store_true", help="Show sync status")
     serve_parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
@@ -439,6 +464,7 @@ def main(argv=None):
             # Handle template
             if args.template:
                 from memtext.db import get_template
+
                 template = get_template(args.template)
                 if not template:
                     raise ValidationError(f"Template not found: {args.template}")
@@ -453,10 +479,6 @@ def main(argv=None):
             if not args.content:
                 print(
                     "Note: Using title as content. Use --content to specify separate content."
-                )
-            try:
-                entry_id = add_entry(
-                    args.text, content, entry_type, args.tags, importance=args.importance, parent_tag=args.parent_tag
                 )
             try:
                 entry_id = add_entry(
@@ -616,7 +638,9 @@ def main(argv=None):
 
                 reminder_id = add_reminder(args.entry_id, args.at, args.message)
                 if reminder_id > 0:
-                    print(f"Reminder {reminder_id} set for entry {args.entry_id} at {args.at}")
+                    print(
+                        f"Reminder {reminder_id} set for entry {args.entry_id} at {args.at}"
+                    )
                     logger.info(f"Added reminder for entry {args.entry_id}")
                 else:
                     print("Failed to create reminder")
@@ -631,8 +655,10 @@ def main(argv=None):
                 if not pending:
                     print("No pending reminders.")
                 for r in pending:
-                    print(f"#{r['id']} [{r['remind_at']}] Entry {r['entry_id']}: {r['title']}")
-                    if r['message']:
+                    print(
+                        f"#{r['id']} [{r['remind_at']}] Entry {r['entry_id']}: {r['title']}"
+                    )
+                    if r["message"]:
                         print(f"  Note: {r['message']}")
             except Exception as e:
                 raise DatabaseError(f"Failed to get reminders: {e}")
@@ -656,8 +682,10 @@ def main(argv=None):
                 if not reminders:
                     print("No reminders found.")
                 for r in reminders:
-                    status = "✓" if r['completed'] else "○"
-                    print(f"{status} #{r['id']} Entry {r['entry_id']} at {r['remind_at']}: {r.get('message', '')}")
+                    status = "✓" if r["completed"] else "○"
+                    print(
+                        f"{status} #{r['id']} Entry {r['entry_id']} at {r['remind_at']}: {r.get('message', '')}"
+                    )
             except Exception as e:
                 raise DatabaseError(f"Failed to list reminders: {e}")
 
@@ -701,11 +729,11 @@ def main(argv=None):
                     return
 
                 # Restore plaintext content and mark as not encrypted
-                conn = __import__('sqlite3').connect(get_db_path())
+                conn = __import__("sqlite3").connect(get_db_path())
                 cursor = conn.cursor()
                 cursor.execute(
                     "UPDATE context_entries SET content = ?, is_encrypted = 0, encrypted_content = NULL WHERE id = ?",
-                    (content, args.entry_id)
+                    (content, args.entry_id),
                 )
                 conn.commit()
                 conn.close()
@@ -741,6 +769,7 @@ def main(argv=None):
                 if args.fields:
                     try:
                         import json
+
                         fields_schema = json.loads(args.fields)
                     except json.JSONDecodeError:
                         raise ValidationError("Invalid JSON for --fields")
@@ -759,7 +788,9 @@ def main(argv=None):
             elif args.template_command == "list":
                 templates = list_templates()
                 if not templates:
-                    print("No templates found. Use 'memtext template add' to create one.")
+                    print(
+                        "No templates found. Use 'memtext template add' to create one."
+                    )
                 for t in templates:
                     print(f"[{t['entry_type']}] {t['name']} - {t['description']}")
 
@@ -852,7 +883,9 @@ def main(argv=None):
                     if not history:
                         print("No history available.")
                     for h in history:
-                        print(f"[{h['changed_at']}] {h['field_name']}: {h['old_value']} → {h['new_value']}")
+                        print(
+                            f"[{h['changed_at']}] {h['field_name']}: {h['old_value']} → {h['new_value']}"
+                        )
             except Exception as e:
                 raise DatabaseError(f"Failed to get history: {e}")
 
@@ -896,8 +929,13 @@ def main(argv=None):
         elif args.command == "sync":
             try:
                 from memtext.sync import (
-                    git_push, git_pull, set_remote, enable_auto_sync,
-                    disable_auto_sync, load_sync_config, init_git_repo
+                    git_push,
+                    git_pull,
+                    set_remote,
+                    enable_auto_sync,
+                    disable_auto_sync,
+                    load_sync_config,
+                    init_git_repo,
                 )
 
                 if args.remote:
@@ -915,7 +953,9 @@ def main(argv=None):
                 if args.status:
                     config = load_sync_config()
                     print(f"Remote: {config.get('remote_url') or 'Not set'}")
-                    print(f"Auto-sync: {'enabled' if config.get('auto_sync') else 'disabled'}")
+                    print(
+                        f"Auto-sync: {'enabled' if config.get('auto_sync') else 'disabled'}"
+                    )
                     print(f"Last sync: {config.get('last_sync') or 'Never'}")
 
                 if args.push:
@@ -933,7 +973,16 @@ def main(argv=None):
                         raise DatabaseError(msg)
 
                 # If no action specified, show status
-                if not any([args.push, args.pull, args.remote, args.auto, args.no_auto, args.status]):
+                if not any(
+                    [
+                        args.push,
+                        args.pull,
+                        args.remote,
+                        args.auto,
+                        args.no_auto,
+                        args.status,
+                    ]
+                ):
                     sync_parser.print_help()
 
             except Exception as e:
@@ -945,13 +994,18 @@ def main(argv=None):
 
                 backup_id = create_backup(args.type)
                 if backup_id:
-                print(f"Backup created: ID {backup_id}")
-                logger.info(f"Created backup {backup_id}")
+                    print(f"Backup created: ID {backup_id}")
+                    logger.info(f"Created backup {backup_id}")
             except Exception as e:
                 raise DatabaseError(f"Backup failed: {e}")
 
         elif args.command == "webhook":
-            from memtext.db import add_webhook, list_webhooks, remove_webhook, trigger_webhook
+            from memtext.db import (
+                add_webhook,
+                list_webhooks,
+                remove_webhook,
+                trigger_webhook,
+            )
 
             if not args.webhook_command:
                 webhook_parser.print_help()
@@ -960,7 +1014,9 @@ def main(argv=None):
             if args.webhook_command == "add":
                 webhook_id = add_webhook(args.url, args.event, args.secret)
                 if webhook_id > 0:
-                    print(f"Webhook {webhook_id} added for {args.event} events on {args.url}")
+                    print(
+                        f"Webhook {webhook_id} added for {args.event} events on {args.url}"
+                    )
                     logger.info(f"Added webhook {webhook_id}")
                 else:
                     print("Failed to add webhook")
@@ -970,7 +1026,9 @@ def main(argv=None):
                 if not hooks:
                     print("No webhooks configured.")
                 for h in hooks:
-                    print(f"#{h['id']} [{h['event']}] {h['url']} (active={h['active']})")
+                    print(
+                        f"#{h['id']} [{h['event']}] {h['url']} (active={h['active']})"
+                    )
 
             elif args.webhook_command == "remove":
                 if remove_webhook(args.webhook_id):
@@ -1002,7 +1060,9 @@ def main(argv=None):
                     print("No backups found.")
                 for b in backups:
                     print(f"#{b['id']} [{b['backup_type']}] {b['backup_path']}")
-                    print(f"  Size: {b['size_bytes']} bytes, Entries: {b['entry_count']}, Created: {b['created_at']}")
+                    print(
+                        f"  Size: {b['size_bytes']} bytes, Entries: {b['entry_count']}, Created: {b['created_at']}"
+                    )
             except Exception as e:
                 raise DatabaseError(f"Failed to list backups: {e}")
 
