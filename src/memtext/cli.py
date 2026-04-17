@@ -10,15 +10,8 @@ from memtext.core import (
     add_log,
     synthesize_memories,
 )
-from memtext.db import (
-    init_db,
-    add_entry,
-    list_entries,
-    register_project,
-    list_projects,
-    scan_for_projects,
-    get_db_path,
-)
+from memtext.repositories.database import EntryManager
+from memtext.repositories.projects import ProjectRegistry
 from memtext import logging_config
 
 logger = logging.getLogger("memtext")
@@ -428,7 +421,7 @@ def main(argv=None):
     try:
         if args.command == "init":
             init_context()
-            init_db()
+            init_context()
             logger.info("Initialized context storage")
 
         elif args.command == "save":
@@ -481,7 +474,7 @@ def main(argv=None):
                     "Note: Using title as content. Use --content to specify separate content."
                 )
             try:
-                entry_id = add_entry(
+                entry_id = entry_mgr.add(
                     args.text,
                     content,
                     args.type,
@@ -499,7 +492,7 @@ def main(argv=None):
 
         elif args.command == "list":
             require_context_dir()
-            entries = list_entries(args.type, args.limit, parent_tag=args.parent_tag)
+            entries = entry_mgr.list(args.type, args.limit, parent_tag=args.parent_tag)
             if not entries:
                 print("No entries found.")
             for e in entries:
@@ -507,12 +500,12 @@ def main(argv=None):
 
         elif args.command == "projects":
             if args.scan:
-                found = scan_for_projects()
+                found = proj_reg.scan()
                 for p in found:
-                    register_project(p)
+                    proj_reg.register(p)
                 print(f"Found {len(found)} projects")
                 logger.info(f"Scanned and registered {len(found)} projects")
-            projects = list_projects()
+            projects = proj_reg.list()
             if not projects:
                 print(
                     "No projects registered. Run 'memtext init' or 'memtext projects --scan'"
@@ -572,7 +565,7 @@ def main(argv=None):
                     synthesizer = MemorySynthesizer()
                     memories = synthesizer.synthesize(args.text)
                     for mem in memories:
-                        add_entry(
+                        entry_mgr.add(
                             mem.get("title"),
                             mem.get("content"),
                             mem.get("entry_type"),
@@ -729,7 +722,7 @@ def main(argv=None):
                     return
 
                 # Restore plaintext content and mark as not encrypted
-                conn = __import__("sqlite3").connect(get_db_path())
+                conn = __import__("sqlite3").connect(entry_mgr.db_path)
                 cursor = conn.cursor()
                 cursor.execute(
                     "UPDATE context_entries SET content = ?, is_encrypted = 0, encrypted_content = NULL WHERE id = ?",
@@ -850,7 +843,7 @@ def main(argv=None):
                 tagger = AutoTagger()
 
                 if args.all:
-                    entries = list_entries(limit=100)
+                    entries = entry_mgr.list(limit=100)
                     for entry in entries:
                         tags = tagger.tag_content(entry.get("content", ""))
                         if tags:
@@ -909,7 +902,7 @@ def main(argv=None):
                     else:
                         print("No relationships found")
                 else:
-                    entries = list_entries(limit=50)
+                    entries = entry_mgr.list(limit=50)
                     count = build_relationships_from_entries(entries)
                     print(f"Built {count} relationships")
             except Exception as e:

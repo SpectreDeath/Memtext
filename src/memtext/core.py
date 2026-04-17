@@ -2,6 +2,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from .repositories.database import EntryManager
+
 
 def get_context_dir() -> Path:
     return Path.cwd() / ".context"
@@ -55,7 +57,6 @@ Brief description of the project.
         if ".context/" not in content:
             with open(root_gitignore, "a") as f:
                 f.write("\n# Memtext context\n.context/\n")
-            print(f"Added .context/ to {root_gitignore}")
     else:
         print("Tip: Create a .gitignore with '.context/' to exclude from Git")
 
@@ -134,14 +135,12 @@ def add_log(text: str, session: str = None):
 
 def migrate_to_db():
     """Migrate filesystem context to SQLite database."""
-    from memtext.db import add_entry, init_db
-
     ctx_dir = get_context_dir()
     if not ctx_dir.exists():
         print("No .context directory to migrate.")
         return 0
 
-    init_db()
+    entry_mgr = EntryManager()
     count = 0
 
     # 1. Migrate decisions
@@ -151,7 +150,7 @@ def migrate_to_db():
         for line in content.split("\n"):
             if line.startswith("- "):
                 title = line[2:].strip()
-                if add_entry(title, title, "decision") != -1:
+                if entry_mgr.add(title, title, "decision") != -1:
                     count += 1
 
     # 2. Migrate logs
@@ -166,10 +165,7 @@ def migrate_to_db():
                 if line.startswith("### "):
                     if current_body:
                         # Save previous section
-                        if (
-                            add_entry(current_title, "\n".join(current_body), "note")
-                            != -1
-                        ):
+                        if entry_mgr.add(current_title, "\n".join(current_body), "note") != -1:
                             count += 1
                     current_title = line[4:].strip()
                     current_body = []
@@ -177,14 +173,14 @@ def migrate_to_db():
                     current_body.append(line)
 
             if current_body:
-                if add_entry(current_title, "\n".join(current_body), "note") != -1:
+                if entry_mgr.add(current_title, "\n".join(current_body), "note") != -1:
                     count += 1
 
     # 3. Migrate identity
     identity_file = ctx_dir / "identity.md"
     if identity_file.exists():
         content = identity_file.read_text()
-        if add_entry("Project Identity", content, "convention") != -1:
+        if entry_mgr.add("Project Identity", content, "convention") != -1:
             count += 1
 
     return count
@@ -211,8 +207,7 @@ def synthesize_memories(source_text: str = None, recent_only: bool = True):
     Returns:
         int: Count of new memories created
     """
-    from memtext.db import add_entry, entry_exists
-
+    entry_mgr = EntryManager()
     count = 0
 
     if source_text:
@@ -222,11 +217,11 @@ def synthesize_memories(source_text: str = None, recent_only: bool = True):
         if match:
             title, content, tags_str = match.groups()
             tags = [t.strip() for t in tags_str.split(",")]
-            entry_id = add_entry(title, content, "memory", tags=tags)
+            entry_id = entry_mgr.add(title, content, "memory", tags=tags)
             if entry_id > 0:
                 count = 1
         else:
-            entry_id = add_entry("Synthesized Memory", source_text, "memory")
+            entry_id = entry_mgr.add("Synthesized Memory", source_text, "memory")
             if entry_id > 0:
                 count = 1
         return count
@@ -254,9 +249,9 @@ def synthesize_memories(source_text: str = None, recent_only: bool = True):
             title = text.split("\n")[0][:50]
             memory_title = f"Auto-Memory: {title}"
             # Skip if this memory already exists
-            if entry_exists(memory_title, "memory"):
+            if entry_mgr.get(entry_mgr.entries if hasattr(entry_mgr, 'entries') else []) is None:
                 continue
-            if add_entry(memory_title, text, "memory") != -1:
+            if entry_mgr.add(memory_title, text, "memory") != -1:
                 count += 1
 
     return count
