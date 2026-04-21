@@ -1,12 +1,11 @@
 """Logging configuration for memtext."""
 
+import json
 import logging
 import sys
-import json
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
-
 
 DEFAULT_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
