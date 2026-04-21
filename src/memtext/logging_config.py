@@ -68,7 +68,7 @@ def setup_logger(
                         }
                     )
 
-            file_formatter = JSONFormatter()
+            file_formatter: logging.Formatter = JSONFormatter()
         else:
             file_formatter = logging.Formatter(DEFAULT_FORMAT, DATE_FORMAT)
 
@@ -115,7 +115,7 @@ class LogContext:
     def __init__(self, logger: logging.Logger, level: int):
         self.logger = logger
         self.level = level
-        self.old_level = None
+        self.old_level: Optional[int] = None
 
     def __enter__(self):
         self.old_level = self.logger.level
@@ -123,10 +123,11 @@ class LogContext:
         return self.logger
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        assert self.old_level is not None, "old_level should be set in __enter__"
         self.logger.setLevel(self.old_level)
 
 
-def log_command(command: str, args: dict = None):
+def log_command(command: str, args: Optional[dict] = None):
     """Log a command execution.
 
     Args:
@@ -139,7 +140,7 @@ def log_command(command: str, args: dict = None):
         logger.debug(f"Args: {args}")
 
 
-def log_error(error: Exception, context: str = None):
+def log_error(error: Exception, context: Optional[str] = None):
     """Log an error with context.
 
     Args:
