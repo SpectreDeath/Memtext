@@ -1,18 +1,23 @@
 import argparse
-import sys
 import logging
+import sys
 from pathlib import Path
 
 from memtext.core import (
-    init_context,
-    save_context,
-    query_context,
     add_log,
+    add_skill,
+    compile_context,
+    deprecate_entry,
+    distill_logs,
+    init_context,
+    prune_deprecated,
+    query_context,
+    save_context,
     synthesize_memories,
+    view_skill,
 )
-from memtext.repositories.database import EntryManager
-from memtext.repositories.projects import ProjectRegistry
-from memtext import logging_config
+
+logger = logging.getLogger("memtext")
 
 logger = logging.getLogger("memtext")
 
@@ -169,6 +174,62 @@ def main(argv=None):
         "--all", action="store_true", help="Scan all logs (default is recent only)"
     )
 
+    # Procedural Memory commands
+    skill_add_parser = subparsers.add_parser(
+        "add-skill",
+        help="Create a new procedural skill",
+        description="Add a skill to the skills index for procedural memory",
+    )
+    skill_add_parser.add_argument("name", help="Skill name (e.g., run-linting)")
+    skill_add_parser.add_argument("--desc", required=True, help="Skill description")
+    skill_add_parser.add_argument("--content", help="Custom skill content (markdown)")
+
+    skill_view_parser = subparsers.add_parser(
+        "view-skill",
+        help="View a skill's full content",
+        description="Display the complete skill markdown for execution",
+    )
+    skill_view_parser.add_argument("name", help="Skill name to view")
+
+    # Episodic Memory commands
+    distill_parser = subparsers.add_parser(
+        "distill",
+        help="Distill session logs into punchy takeaways",
+        description="Compress raw logs into architectural lessons",
+    )
+    distill_parser.add_argument("--date", help="Specific date (YYYY-MM-DD)")
+    distill_parser.add_argument("--llm", action="store_true", help="Use LLM for summarization")
+    distill_parser.add_argument("--model", default="llama3", help="LLM model for distillation")
+
+    # Working Memory commands
+    compile_parser = subparsers.add_parser(
+        "compile",
+        help="Assemble context for agent consumption",
+        description="Generate optimized context payload for LLM. Use --mode init for session start.",
+    )
+    compile_parser.add_argument(
+        "--mode",
+        choices=["init", "active"],
+        default="active",
+        help="init: baseline only, active: includes recent distilled logs",
+    )
+
+    # Memory Lifecycle commands
+    deprecate_parser = subparsers.add_parser(
+        "deprecate",
+        help="Mark entry as deprecated",
+        description="Flag entries/skills as outdated with frontmatter metadata",
+    )
+    deprecate_parser.add_argument("type", choices=["entry", "skill", "decision"], help="Type to deprecate")
+    deprecate_parser.add_argument("name", help="Entry/skill name or ID")
+    deprecate_parser.add_argument("--superseded-by", help="What replaced this entry")
+
+    subparsers.add_parser(
+        "prune",
+        help="Remove deprecated entries from active indexes",
+        description="Clean up skills.md and other indexes by removing deprecated items",
+    )
+
     offload_parser = subparsers.add_parser(
         "offload",
         help="Context offloading and extraction",
@@ -225,7 +286,7 @@ def main(argv=None):
     )
     remind_parser.add_argument("--message", help="Reminder message")
 
-    reminders_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "reminders",
         help="List pending reminders",
         description="Show all pending reminders that are due",
@@ -276,7 +337,7 @@ def main(argv=None):
     template_add_parser.add_argument("--type", default="note", help="Entry type")
     template_add_parser.add_argument("--fields", help="JSON schema for fields")
 
-    template_list_parser = template_subparsers.add_parser(
+    template_subparsers.add_parser(
         "list", help="List all templates"
     )
     template_show_parser = template_subparsers.add_parser(
@@ -355,7 +416,7 @@ def main(argv=None):
         "--type", default="manual", choices=["manual", "scheduled"], help="Backup type"
     )
 
-    backup_list_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "backup-list",
         help="List available backups",
         description="Show all available backups",
@@ -385,7 +446,7 @@ def main(argv=None):
     )
     wh_add_parser.add_argument("--secret", help="Optional secret for signing")
 
-    wh_list_parser = webhook_subparsers.add_parser("list", help="List webhooks")
+    webhook_subparsers.add_parser("list", help="List webhooks")
     wh_remove_parser = webhook_subparsers.add_parser("remove", help="Remove a webhook")
     wh_remove_parser.add_argument("webhook_id", type=int, help="Webhook ID")
     wh_test_parser = webhook_subparsers.add_parser("test", help="Test a webhook")
@@ -464,9 +525,9 @@ def main(argv=None):
                 # Template provides defaults; args still override
                 # For now, template just validates existence and can auto-set type
                 # Content from --content or title
-                entry_type = template.get("entry_type", args.type)
+                template.get("entry_type", args.type)
             else:
-                entry_type = args.type
+                pass
 
             content = args.content or args.text
             if not args.content:
@@ -474,6 +535,10 @@ def main(argv=None):
                     "Note: Using title as content. Use --content to specify separate content."
                 )
             try:
+                from memtext.db import get_entry
+                from memtext.repositories.database import EntryManager
+
+                entry_mgr = EntryManager()
                 entry_id = entry_mgr.add(
                     args.text,
                     content,
@@ -492,6 +557,8 @@ def main(argv=None):
 
         elif args.command == "list":
             require_context_dir()
+            from memtext.repositories.database import EntryManager
+            entry_mgr = EntryManager()
             entries = entry_mgr.list(args.type, args.limit, parent_tag=args.parent_tag)
             if not entries:
                 print("No entries found.")
@@ -499,6 +566,8 @@ def main(argv=None):
                 print(f"[{e['id']}] {e['title']} ({e['entry_type']})")
 
         elif args.command == "projects":
+            from memtext.repositories.projects import ProjectRegistry
+            proj_reg = ProjectRegistry()
             if args.scan:
                 found = proj_reg.scan()
                 for p in found:
@@ -527,12 +596,12 @@ def main(argv=None):
             logger.info(f"Synthesized {count} memories")
 
         elif args.command == "offload":
+            from memtext.db import query_entries
             from memtext.memory_logic import (
-                DecisionExtractor,
                 ContextOffloader,
+                DecisionExtractor,
                 MemorySynthesizer,
             )
-            from memtext.db import query_entries
 
             if args.extract:
                 if not args.text:
@@ -562,7 +631,11 @@ def main(argv=None):
 
                 if args.save:
                     require_context_dir()
+                    from memtext.memory_logic import MemorySynthesizer
+                    from memtext.repositories.database import EntryManager
+
                     synthesizer = MemorySynthesizer()
+                    entry_mgr = EntryManager()
                     memories = synthesizer.synthesize(args.text)
                     for mem in memories:
                         entry_mgr.add(
@@ -591,6 +664,41 @@ def main(argv=None):
                         accesses = entry.get("access_count", 0)
                         print(f"{i}. [{entry['entry_type']}] {entry['title']}")
                         print(f"   importance={imp}, accesses={accesses}")
+
+        elif args.command == "add-skill":
+            idx = add_skill(args.name, args.desc, args.content)
+            if idx != -1:
+                print(f"Created skill: .context/skills/{args.name}.md")
+                logger.info(f"Added skill: {args.name}")
+            else:
+                print(f"Skill {args.name} already exists.")
+
+        elif args.command == "view-skill":
+            content = view_skill(args.name)
+            if content:
+                print(content)
+            else:
+                print(f"Skill {args.name} not found.")
+
+        elif args.command == "distill":
+            count = distill_logs(args.date, args.llm, args.model)
+            print(f"Distilled {count} log files")
+            logger.info(f"Distilled {count} logs")
+
+        elif args.command == "compile":
+            output = compile_context(args.mode)
+            print(output)
+
+        elif args.command == "deprecate":
+            success = deprecate_entry(args.type, args.name, args.superseded_by)
+            if success:
+                print(f"Deprecated {args.type}: {args.name}")
+            else:
+                print(f"Failed to deprecate {args.type}: {args.name}")
+
+        elif args.command == "prune":
+            prune_deprecated()
+            print("Pruned deprecated entries from indexes")
 
         elif args.command == "export":
             try:
@@ -685,6 +793,7 @@ def main(argv=None):
         elif args.command == "encrypt":
             try:
                 import getpass
+
                 from memtext.encryption import encrypt_entry
 
                 password = getpass.getpass("Encryption password: ")
@@ -705,8 +814,11 @@ def main(argv=None):
         elif args.command == "decrypt":
             try:
                 import getpass
+                import sqlite3
+
+                from memtext.db import get_db_path as db_path_func
+                from memtext.db import get_entry
                 from memtext.encryption import decrypt_entry, is_entry_encrypted
-                from memtext.db import update_entry, get_entry
 
                 if not is_entry_encrypted(args.entry_id):
                     print(f"Entry {args.entry_id} is not encrypted")
@@ -722,7 +834,7 @@ def main(argv=None):
                     return
 
                 # Restore plaintext content and mark as not encrypted
-                conn = __import__("sqlite3").connect(entry_mgr.db_path)
+                conn = sqlite3.connect(db_path_func())
                 cursor = conn.cursor()
                 cursor.execute(
                     "UPDATE context_entries SET content = ?, is_encrypted = 0, encrypted_content = NULL WHERE id = ?",
@@ -800,9 +912,9 @@ def main(argv=None):
         elif args.command == "synthesize-ai":
             try:
                 from memtext.llm import (
+                    check_llm_available,
                     synthesize,
                     synthesize_rule_based,
-                    check_llm_available,
                 )
 
                 available = check_llm_available()
@@ -837,10 +949,12 @@ def main(argv=None):
         elif args.command == "retag":
             try:
                 from memtext.llm import AutoTagger
+                from memtext.repositories.database import EntryManager
 
                 require_context_dir()
 
                 tagger = AutoTagger()
+                entry_mgr = EntryManager()
 
                 if args.all:
                     entries = entry_mgr.list(limit=100)
@@ -864,7 +978,7 @@ def main(argv=None):
 
         elif args.command == "history":
             try:
-                from memtext.db import get_entry_history, get_entry
+                from memtext.db import get_entry, get_entry_history
 
                 entry = get_entry(args.entry_id)
                 if not entry:
@@ -886,10 +1000,11 @@ def main(argv=None):
             try:
                 require_context_dir()
                 from memtext.graph import (
-                    get_related_entries,
                     build_relationships_from_entries,
+                    get_related_entries,
                     init_graph,
                 )
+                from memtext.repositories.database import EntryManager
 
                 init_graph()
 
@@ -902,6 +1017,7 @@ def main(argv=None):
                     else:
                         print("No relationships found")
                 else:
+                    entry_mgr = EntryManager()
                     entries = entry_mgr.list(limit=50)
                     count = build_relationships_from_entries(entries)
                     print(f"Built {count} relationships")
@@ -922,13 +1038,13 @@ def main(argv=None):
         elif args.command == "sync":
             try:
                 from memtext.sync import (
-                    git_push,
-                    git_pull,
-                    set_remote,
-                    enable_auto_sync,
                     disable_auto_sync,
-                    load_sync_config,
+                    enable_auto_sync,
+                    git_pull,
+                    git_push,
                     init_git_repo,
+                    load_sync_config,
+                    set_remote,
                 )
 
                 if args.remote:
@@ -1062,7 +1178,6 @@ def main(argv=None):
         elif args.command == "restore":
             try:
                 from memtext.db import restore_backup
-                from pathlib import Path
 
                 success = False
                 if args.backup_id:

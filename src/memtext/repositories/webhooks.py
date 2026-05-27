@@ -7,9 +7,11 @@ from datetime import datetime
 from typing import Optional, List
 import urllib.request
 import urllib.error
-import json
+import logging
 
-from ..core import get_db_path, get_connection, log
+from .database import get_db_path, get_connection
+
+logger = logging.getLogger(__name__)
 
 
 class WebhookService:
@@ -41,7 +43,7 @@ class WebhookService:
                 (url, event, secret),
             )
             conn.commit()
-            log.info(f"Webhook {cursor.lastrowid} registered for {event}")
+            logger.info(f"Webhook {cursor.lastrowid} registered for {event}")
             return cursor.lastrowid
 
     def list(self, active_only: bool = True) -> List[dict]:
@@ -82,6 +84,6 @@ class WebhookService:
                 )
                 with urllib.request.urlopen(req, timeout=5) as resp:
                     if resp.status not in (200, 201, 202, 204):
-                        log.warning(f"Webhook {wh['id']} returned {resp.status}")
+                        logger.warning(f"Webhook {wh['id']} returned {resp.status}")
             except Exception as e:
-                log.error(f"Webhook {wh['id']} delivery failed: {e}")
+                logger.error(f"Webhook {wh['id']} delivery failed: {e}")

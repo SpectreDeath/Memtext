@@ -6,7 +6,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from ..core import get_db_path, get_connection, log
+from .database import get_db_path, get_connection
+import sqlite3
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateRegistry:
@@ -39,7 +43,7 @@ class TemplateRegistry:
                     (name, description, entry_type, str(fields_schema)),
                 )
                 conn.commit()
-            log.info(f"Template created: {name}")
+            logger.info(f"Template created: {name}")
             return True
         except sqlite3.IntegrityError:
             return False  # already exists
@@ -68,4 +72,4 @@ class TemplateRegistry:
         ]
         for name, desc, etype, schema in defaults:
             self.create(name, desc, etype, schema)
-        log.info("Default templates populated")
+        logger.info("Default templates populated")

@@ -1,27 +1,36 @@
 """Agent skills for memtext context management."""
 
+from memtext.core import (
+    SYNTHESIS_PROMPT,
+    add_skill,
+    compile_context,
+    deprecate_entry,
+    distill_logs,
+    prune_deprecated,
+    synthesize_memories,
+    view_skill,
+)
 from memtext.db import (
     add_entry,
-    get_entry,
-    update_entry,
     delete_entry,
-    query_entries,
+    get_entry,
     list_entries,
-    register_project,
     list_projects,
+    query_entries,
+    register_project,
     scan_for_projects,
+    update_entry,
 )
-from memtext.core import synthesize_memories, SYNTHESIS_PROMPT
 from memtext.memory_logic import (
-    DecisionExtractor,
     ContextOffloader,
+    DecisionExtractor,
     MemorySynthesizer,
     check_prolog_available,
 )
 from memtext.prolog_memory import (
-    query_memory,
     classify_memory,
     preserve_memory,
+    query_memory,
 )
 
 
@@ -78,12 +87,11 @@ def context_retriever(query: dict) -> dict:
 def context_pruner(query: dict) -> dict:
     """Find stale entries."""
     import datetime
+    import sqlite3
+    from memtext.db import get_db_path
 
     days = query.get("days", 30)
     cutoff = (datetime.datetime.now() - datetime.timedelta(days=days)).isoformat()
-
-    from memtext.db import get_db_path
-    import sqlite3
 
     db_path = get_db_path()
     conn = sqlite3.connect(db_path)
@@ -239,5 +247,77 @@ def prolog_memory_skill(action: dict) -> dict:
         max_count = action.get("max_count", 20)
         preserved = preserve_memory(entries, max_count)
         return {"status": "success", "preserved": preserved}
+
+    return {"status": "error", "message": "Unknown action"}
+
+
+def skill_manager(action: dict) -> dict:
+    """Manage procedural memory skills."""
+    action_type = action.get("action", "list")
+
+    if action_type == "add":
+        name = action.get("name")
+        desc = action.get("desc")
+        content = action.get("content")
+        idx = add_skill(name, desc, content)
+        if idx >= 0:
+            return {"status": "success", "skill": name}
+        return {"status": "error", "message": f"Skill {name} already exists"}
+
+    elif action_type == "view":
+        name = action.get("name")
+        content = view_skill(name)
+        if content is None:
+            return {"status": "not_found", "message": f"Skill {name} not found"}
+        return {"status": "success", "content": content}
+
+    elif action_type == "list":
+        from memtext.core import get_context_dir
+        ctx_dir = get_context_dir()
+        skills_dir = ctx_dir / "skills" if ctx_dir.exists() else None
+        skills = []
+        if skills_dir and skills_dir.exists():
+            for skill_file in skills_dir.glob("*.md"):
+                skills.append(skill_file.stem)
+        return {"status": "success", "skills": skills}
+
+    return {"status": "error", "message": "Unknown action"}
+
+
+def distiller(action: dict) -> dict:
+    """Distill episodic logs into memories."""
+    action_type = action.get("action", "distill")
+
+    if action_type == "distill":
+        date_str = action.get("date")
+        use_llm = action.get("use_llm", False)
+        model = action.get("model", "llama3")
+        count = distill_logs(date_str, use_llm, model)
+        return {"status": "success", "distilled": count}
+
+    return {"status": "error", "message": "Unknown action"}
+
+
+def context_compiler(action: dict) -> dict:
+    """Compile context for working memory assembly."""
+    mode = action.get("mode", "active")
+    output = compile_context(mode)
+    return {"status": "success", "compiled": output}
+
+
+def lifecycle_manager(action: dict) -> dict:
+    """Manage memory lifecycle (deprecate, prune)."""
+    action_type = action.get("action", "deprecate")
+
+    if action_type == "deprecate":
+        entry_type = action.get("type")
+        name = action.get("name")
+        superseded_by = action.get("superseded_by")
+        success = deprecate_entry(entry_type, name, superseded_by)
+        return {"status": "success" if success else "error", "deprecated": name}
+
+    elif action_type == "prune":
+        prune_deprecated()
+        return {"status": "success", "pruned": True}
 
     return {"status": "error", "message": "Unknown action"}

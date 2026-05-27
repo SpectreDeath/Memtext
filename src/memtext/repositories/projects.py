@@ -7,18 +7,21 @@ from pathlib import Path
 from typing import Optional, List
 
 import logging
-import logging
+import sqlite3
+
 logger = logging.getLogger(__name__)
 
 
 def get_connection(db_path=None):
-    import sqlite3
     db_path = db_path or get_db_path()
     return sqlite3.connect(db_path)
-import sqlite3
 
 
-PROJECT_REGISTRY = None  # singleton path, see get_registry_path()
+def get_db_path() -> Path:
+    return Path.cwd() / ".context" / "memtext.db"
+
+
+PROJECT_REGISTRY = None
 
 
 class ProjectRegistry:
@@ -48,15 +51,17 @@ class ProjectRegistry:
             """)
             conn.commit()
 
-    def register(self, path: str, name: str) -> int:
+    def register(self, path: str, name: str = None) -> int:
         """Add a project to the registry."""
+        path = str(Path(path).resolve()) if isinstance(path, str) else str(path)
+        name = name or Path(path).name
         with get_connection(self.registry_path) as conn:
             cursor = conn.execute(
-                "INSERT INTO projects (path, name) VALUES (?, ?)",
-                (str(Path(path).resolve()), name),
+                "INSERT OR IGNORE INTO projects (path, name) VALUES (?, ?)",
+                (path, name),
             )
             conn.commit()
-            log.info(f"Registered project: {name} at {path}")
+            logger.info(f"Registered project: {name} at {path}")
             return cursor.lastrowid
 
     def list(self) -> List[dict]:
@@ -65,15 +70,16 @@ class ProjectRegistry:
             rows = conn.execute("SELECT * FROM projects ORDER BY name").fetchall()
             return [dict(r) for r in rows]
 
-    def scan(self, root_path: Path) -> List[dict]:
+    def scan(self, root_path=None) -> List[dict]:
         """Recursively find projects (directories containing .context/)."""
         found = []
-        for dirpath, dirnames, filenames in root_path.walk():
+        root = Path(root_path) if root_path else Path.cwd()
+        for dirpath, dirnames, filenames in root.walk():
             if ".context" in dirnames:
                 project_path = Path(dirpath)
                 found.append({
                     "path": str(project_path),
                     "name": project_path.name,
-                    "registered": False,  # check against registry if desired
+                    "registered": False,
                 })
         return found

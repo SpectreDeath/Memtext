@@ -38,7 +38,6 @@ class EntryManager:
     def _init_db(self) -> None:
         """Create tables if they don't exist (matching original memtext schema)."""
         with get_connection(self.db_path) as conn:
-            # Use original table names for compatibility
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS context_entries (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,7 +77,7 @@ class EntryManager:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO entries
+                INSERT INTO context_entries
                 (title, content, entry_type, tags, importance, linked_files, parent_tag, source, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
@@ -96,30 +95,32 @@ class EntryManager:
             )
             entry_id = cursor.lastrowid
             conn.commit()
-            log.info(f"Added entry {entry_id}: {title!r}")
+            logger.info(f"Added entry {entry_id}: {title!r}")
             return entry_id
 
-    def get(self, entry_id: int) -> Optional[Entry]:
+    def get(self, entry_id: int) -> Optional[dict]:
         """Retrieve a single entry by ID."""
-        with get_connection(self.db_path) as conn:
-            row = conn.execute(
-                "SELECT * FROM context_entries WHERE id = ?", (entry_id,)
-            ).fetchone()
-            if row is None:
-                return None
-            # Increment access count
-            conn.execute(
-                "UPDATE context_entries SET access_count = access_count + 1, last_accessed = ? WHERE id = ?",
-                (datetime.now().isoformat(), entry_id),
-            )
-            conn.commit()
-            return Entry(**dict(row))
+        conn = get_connection(self.db_path)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            "SELECT * FROM context_entries WHERE id = ?", (entry_id,)
+        ).fetchone()
+        if row is None:
+            conn.close()
+            return None
+        conn.execute(
+            "UPDATE context_entries SET access_count = access_count + 1, last_accessed = ? WHERE id = ?",
+            (datetime.now().isoformat(), entry_id),
+        )
+        conn.commit()
+        result = dict(row)
+        conn.close()
+        return result
 
     def update(self, entry_id: int, **kwargs) -> bool:
         """Update an entry. Returns True if modified."""
         if not kwargs:
             return False
-        # Build SET clause dynamically
         allowed = {"title", "content", "entry_type", "tags", "importance", "linked_files", "parent_tag"}
         updates = {k: v for k, v in kwargs.items() if k in allowed}
         if not updates:
@@ -139,7 +140,7 @@ class EntryManager:
             conn.commit()
             return result.rowcount > 0
 
-    def list(self, entry_type: Optional[str] = None, limit: int = 100, parent_tag: Optional[str] = None) -> list[Entry]:
+    def list(self, entry_type: Optional[str] = None, limit: int = 100, parent_tag: Optional[str] = None) -> list[dict]:
         """List entries, optionally filtered."""
         query = "SELECT * FROM context_entries WHERE 1=1"
         params = []
@@ -151,9 +152,12 @@ class EntryManager:
             params.append(parent_tag)
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
-        with get_connection(self.db_path) as conn:
-            rows = conn.execute(query, params).fetchall()
-            return [Entry(**dict(r)) for r in rows]
+        conn = get_connection(self.db_path)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(query, params).fetchall()
+        result = [dict(r) for r in rows]
+        conn.close()
+        return result
 
     def exists(self, title: str, entry_type: str) -> bool:
         """Check if an entry with given title/type exists."""
@@ -164,46 +168,30 @@ class EntryManager:
             ).fetchone()
             return row is not None
 
-    def search(self, query_text: str, entry_type: Optional[str] = None, limit: int = 20) -> list[Entry]:
+    def search(self, query_text: str, entry_type: Optional[str] = None, limit: int = 20) -> list[dict]:
         """Simple LIKE-based search across entries."""
-        with get_connection(self.db_path) as conn:
-            sql = """
-                SELECT * FROM context_entries
-                WHERE (title LIKE ? OR content LIKE ?)
-            """
-            params = [f"%{query_text}%", f"%{query_text}%"]
-            if entry_type:
-                sql += " AND entry_type = ?"
-                params.append(entry_type)
-            sql += " LIMIT ?"
-            params.append(limit)
-            rows = conn.execute(sql, params).fetchall()
-            return [Entry(**dict(r)) for r in rows]
+        conn = get_connection(self.db_path)
+        conn.row_factory = sqlite3.Row
+        sql = """
+            SELECT * FROM context_entries
+            WHERE (title LIKE ? OR content LIKE ?)
+        """
+        params = [f"%{query_text}%", f"%{query_text}%"]
+        if entry_type:
+            sql += " AND entry_type = ?"
+            params.append(entry_type)
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        rows = conn.execute(sql, params).fetchall()
+        result = [dict(r) for r in rows]
+        conn.close()
+        return result
 
-    def exists(self, title: str, entry_type: str) -> bool:
-        """Check if an entry with given title/type exists."""
+    def get_entry_history(self, entry_id: int) -> list[dict]:
+        """Get version history for an entry."""
         with get_connection(self.db_path) as conn:
-            row = conn.execute(
-                "SELECT 1 FROM entries WHERE title = ? AND entry_type = ?",
-                (title, entry_type),
-            ).fetchone()
-            return row is not None
-
-    def search(self, query_text: str, entry_type: Optional[str] = None, limit: int = 20) -> list[Entry]:
-        """Full-text search across entries."""
-        # Build FTS query
-        # (Implementation would use FTS5 virtual table; details omitted for brevity)
-        # For now, fallback to simple LIKE
-        with get_connection(self.db_path) as conn:
-            sql = """
-                SELECT * FROM entries
-                WHERE (title LIKE ? OR content LIKE ?)
-            """
-            params = [f"%{query_text}%", f"%{query_text}%"]
-            if entry_type:
-                sql += " AND entry_type = ?"
-                params.append(entry_type)
-            sql += " LIMIT ?"
-            params.append(limit)
-            rows = conn.execute(sql, params).fetchall()
-            return [Entry(**dict(r)) for r in rows]
+            rows = conn.execute(
+                "SELECT * FROM version_history WHERE entry_id = ? ORDER BY changed_at DESC",
+                (entry_id,),
+            ).fetchall()
+            return [dict(r) for r in rows]

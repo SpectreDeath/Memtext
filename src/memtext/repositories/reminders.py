@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List
 
-from ..core import get_db_path, get_connection, log
+from .database import get_db_path, get_connection
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ReminderService:
@@ -27,7 +30,7 @@ class ReminderService:
                     remind_at TIMESTAMP NOT NULL,
                     completed BOOLEAN DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(entry_id) REFERENCES entries(id) ON DELETE CASCADE
+                    FOREIGN KEY(entry_id) REFERENCES context_entries(id) ON DELETE CASCADE
                 )
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(remind_at, completed)")
@@ -41,7 +44,7 @@ class ReminderService:
                 (entry_id, message, remind_at.isoformat()),
             )
             conn.commit()
-            log.info(f"Reminder {cursor.lastrowid} set for entry {entry_id} at {remind_at}")
+            logger.info(f"Reminder {cursor.lastrowid} set for entry {entry_id} at {remind_at}")
             return cursor.lastrowid
 
     def get_pending(self) -> List[dict]:

@@ -8,8 +8,11 @@ from typing import Optional
 
 import sqlite3
 import shutil
+import logging
 
-from ..core import get_db_path, get_connection, log
+from .database import get_db_path, get_connection
+
+logger = logging.getLogger(__name__)
 
 
 class BackupService:
@@ -30,7 +33,7 @@ class BackupService:
             with get_connection(self.db_path) as src:
                 with sqlite3.connect(backup_path) as dst:
                     src.backup(dst)
-            log.info(f"Backup created: {backup_path.name}")
+            logger.info(f"Backup created: {backup_path.name}")
             # Record in backups table
             with get_connection(self.db_path) as conn:
                 cursor = conn.execute(
@@ -40,7 +43,7 @@ class BackupService:
                 conn.commit()
                 return cursor.lastrowid
         except Exception as e:
-            log.error(f"Backup failed: {e}")
+            logger.error(f"Backup failed: {e}")
             return None
 
     def list(self) -> list[dict]:
@@ -64,8 +67,8 @@ class BackupService:
             with sqlite3.connect(backup_path) as src:
                 with get_connection(self.db_path) as dst:
                     src.backup(dst)
-            log.info(f"Restored from backup: {backup_path.name}")
+            logger.info(f"Restored from backup: {backup_path.name}")
             return True
         except Exception as e:
-            log.error(f"Restore failed: {e}")
+            logger.error(f"Restore failed: {e}")
             return False
