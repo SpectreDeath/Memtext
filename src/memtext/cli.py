@@ -155,9 +155,7 @@ def main(argv=None):
     list_parser.add_argument("--limit", type=int, default=10)
 
     projects_parser = subparsers.add_parser("projects", help="List projects")
-    projects_parser.add_argument(
-        "--scan", action="store_true", help="Scan for projects"
-    )
+    projects_parser.add_argument("--scan", action="store_true", help="Scan for projects")
 
     subparsers.add_parser("migrate", help="Migrate v0.1.x to v0.2.0")
 
@@ -220,7 +218,9 @@ def main(argv=None):
         help="Mark entry as deprecated",
         description="Flag entries/skills as outdated with frontmatter metadata",
     )
-    deprecate_parser.add_argument("type", choices=["entry", "skill", "decision"], help="Type to deprecate")
+    deprecate_parser.add_argument(
+        "type", choices=["entry", "skill", "decision"], help="Type to deprecate"
+    )
     deprecate_parser.add_argument("name", help="Entry/skill name or ID")
     deprecate_parser.add_argument("--superseded-by", help="What replaced this entry")
 
@@ -244,18 +244,14 @@ def main(argv=None):
     offload_parser.add_argument(
         "--rank", action="store_true", help="Rank entries by preservation priority"
     )
-    offload_parser.add_argument(
-        "--save", action="store_true", help="Save extracted memories to DB"
-    )
+    offload_parser.add_argument("--save", action="store_true", help="Save extracted memories to DB")
 
     export_parser = subparsers.add_parser(
         "export",
         help="Export project context to bundle",
         description="Export context to a .mtbundle file for sharing",
     )
-    export_parser.add_argument(
-        "--output", help="Output filename (default: context.mtbundle)"
-    )
+    export_parser.add_argument("--output", help="Output filename (default: context.mtbundle)")
 
     import_parser = subparsers.add_parser(
         "import",
@@ -281,9 +277,7 @@ def main(argv=None):
         description="Flag an entry for follow-up review at a specific time",
     )
     remind_parser.add_argument("entry_id", type=int, help="Entry ID")
-    remind_parser.add_argument(
-        "--at", required=True, help="Reminder time (YYYY-MM-DD HH:MM)"
-    )
+    remind_parser.add_argument("--at", required=True, help="Reminder time (YYYY-MM-DD HH:MM)")
     remind_parser.add_argument("--message", help="Reminder message")
 
     subparsers.add_parser(
@@ -329,20 +323,14 @@ def main(argv=None):
     )
     template_subparsers = template_parser.add_subparsers(dest="template_command")
 
-    template_add_parser = template_subparsers.add_parser(
-        "add", help="Create a new template"
-    )
+    template_add_parser = template_subparsers.add_parser("add", help="Create a new template")
     template_add_parser.add_argument("name", help="Template name")
     template_add_parser.add_argument("--description", help="Template description")
     template_add_parser.add_argument("--type", default="note", help="Entry type")
     template_add_parser.add_argument("--fields", help="JSON schema for fields")
 
-    template_subparsers.add_parser(
-        "list", help="List all templates"
-    )
-    template_show_parser = template_subparsers.add_parser(
-        "show", help="Show template details"
-    )
+    template_subparsers.add_parser("list", help="List all templates")
+    template_show_parser = template_subparsers.add_parser("show", help="Show template details")
     template_show_parser.add_argument("name", help="Template name")
 
     synthesize_ai_parser = subparsers.add_parser(
@@ -351,9 +339,7 @@ def main(argv=None):
         description="Use LLM for intelligent memory synthesis. Supports Ollama (local) or OpenAI.",
     )
     synthesize_ai_parser.add_argument("--text", help="Text to synthesize")
-    synthesize_ai_parser.add_argument(
-        "--model", default="llama3", help="Model for local synthesis"
-    )
+    synthesize_ai_parser.add_argument("--model", default="llama3", help="Model for local synthesis")
     synthesize_ai_parser.add_argument(
         "--rule-based", action="store_true", help="Use rule-based fallback"
     )
@@ -384,12 +370,8 @@ def main(argv=None):
         help="Generate graph visualization",
         description="Create an interactive HTML force graph of entry relationships",
     )
-    graph_parser.add_argument(
-        "--output", default="memtext_graph.html", help="Output HTML file"
-    )
-    graph_parser.add_argument(
-        "--limit", type=int, default=100, help="Max nodes to include"
-    )
+    graph_parser.add_argument("--output", default="memtext_graph.html", help="Output HTML file")
+    graph_parser.add_argument("--limit", type=int, default=100, help="Max nodes to include")
     link_parser.add_argument("--entry-id", type=int, help="Entry ID to find links for")
     link_parser.add_argument("--limit", type=int, default=5, help="Max results")
 
@@ -451,25 +433,17 @@ def main(argv=None):
     wh_remove_parser.add_argument("webhook_id", type=int, help="Webhook ID")
     wh_test_parser = webhook_subparsers.add_parser("test", help="Test a webhook")
     wh_test_parser.add_argument("webhook_id", type=int, help="Webhook ID")
-    restore_parser.add_argument(
-        "backup_id", nargs="?", type=int, help="Backup ID to restore"
-    )
-    restore_parser.add_argument(
-        "--file", help="Restore from a specific backup file path"
-    )
+    restore_parser.add_argument("backup_id", nargs="?", type=int, help="Backup ID to restore")
+    restore_parser.add_argument("--file", help="Restore from a specific backup file path")
     sync_parser.add_argument("--push", action="store_true", help="Push to remote")
     sync_parser.add_argument("--pull", action="store_true", help="Pull from remote")
     sync_parser.add_argument("--remote", help="Set remote URL")
-    sync_parser.add_argument(
-        "--auto", action="store_true", help="Enable auto-sync on changes"
-    )
+    sync_parser.add_argument("--auto", action="store_true", help="Enable auto-sync on changes")
     sync_parser.add_argument("--no-auto", action="store_true", help="Disable auto-sync")
     sync_parser.add_argument("--status", action="store_true", help="Show sync status")
     serve_parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     serve_parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
-    serve_parser.add_argument(
-        "--reload", action="store_true", help="Enable auto-reload"
-    )
+    serve_parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
 
     args = parser.parse_args(argv)
 
@@ -531,9 +505,7 @@ def main(argv=None):
 
             content = args.content or args.text
             if not args.content:
-                print(
-                    "Note: Using title as content. Use --content to specify separate content."
-                )
+                print("Note: Using title as content. Use --content to specify separate content.")
             try:
                 from memtext.db import get_entry
                 from memtext.repositories.database import EntryManager
@@ -558,6 +530,7 @@ def main(argv=None):
         elif args.command == "list":
             require_context_dir()
             from memtext.repositories.database import EntryManager
+
             entry_mgr = EntryManager()
             entries = entry_mgr.list(args.type, args.limit, parent_tag=args.parent_tag)
             if not entries:
@@ -567,6 +540,7 @@ def main(argv=None):
 
         elif args.command == "projects":
             from memtext.repositories.projects import ProjectRegistry
+
             proj_reg = ProjectRegistry()
             if args.scan:
                 found = proj_reg.scan()
@@ -576,9 +550,7 @@ def main(argv=None):
                 logger.info(f"Scanned and registered {len(found)} projects")
             projects = proj_reg.list()
             if not projects:
-                print(
-                    "No projects registered. Run 'memtext init' or 'memtext projects --scan'"
-                )
+                print("No projects registered. Run 'memtext init' or 'memtext projects --scan'")
             for p in projects:
                 print(f"{p['path']} - {p['name']}")
 
@@ -704,9 +676,7 @@ def main(argv=None):
             try:
                 from memtext.collaboration import ProjectBundle
 
-                output_path = (
-                    Path(args.output) if args.output else Path.cwd() / "context"
-                )
+                output_path = Path(args.output) if args.output else Path.cwd() / "context"
                 bundle = ProjectBundle(output_path)
                 output = bundle.export()
                 print(f"Exported to: {output.name}")
@@ -739,9 +709,7 @@ def main(argv=None):
 
                 reminder_id = add_reminder(args.entry_id, args.at, args.message)
                 if reminder_id > 0:
-                    print(
-                        f"Reminder {reminder_id} set for entry {args.entry_id} at {args.at}"
-                    )
+                    print(f"Reminder {reminder_id} set for entry {args.entry_id} at {args.at}")
                     logger.info(f"Added reminder for entry {args.entry_id}")
                 else:
                     print("Failed to create reminder")
@@ -756,9 +724,7 @@ def main(argv=None):
                 if not pending:
                     print("No pending reminders.")
                 for r in pending:
-                    print(
-                        f"#{r['id']} [{r['remind_at']}] Entry {r['entry_id']}: {r['title']}"
-                    )
+                    print(f"#{r['id']} [{r['remind_at']}] Entry {r['entry_id']}: {r['title']}")
                     if r["message"]:
                         print(f"  Note: {r['message']}")
             except Exception as e:
@@ -893,9 +859,7 @@ def main(argv=None):
             elif args.template_command == "list":
                 templates = list_templates()
                 if not templates:
-                    print(
-                        "No templates found. Use 'memtext template add' to create one."
-                    )
+                    print("No templates found. Use 'memtext template add' to create one.")
                 for t in templates:
                     print(f"[{t['entry_type']}] {t['name']} - {t['description']}")
 
@@ -936,9 +900,7 @@ def main(argv=None):
                                 print(f"  - {mem.get('title')}")
                             print(f"Tags: {result.tags}")
                         else:
-                            print(
-                                "No LLM available. Install openai package or run Ollama."
-                            )
+                            print("No LLM available. Install openai package or run Ollama.")
                     else:
                         print("No text provided. Use --text or --rule-based")
             except ImportError:
@@ -1062,9 +1024,7 @@ def main(argv=None):
                 if args.status:
                     config = load_sync_config()
                     print(f"Remote: {config.get('remote_url') or 'Not set'}")
-                    print(
-                        f"Auto-sync: {'enabled' if config.get('auto_sync') else 'disabled'}"
-                    )
+                    print(f"Auto-sync: {'enabled' if config.get('auto_sync') else 'disabled'}")
                     print(f"Last sync: {config.get('last_sync') or 'Never'}")
 
                 if args.push:
@@ -1123,9 +1083,7 @@ def main(argv=None):
             if args.webhook_command == "add":
                 webhook_id = add_webhook(args.url, args.event, args.secret)
                 if webhook_id > 0:
-                    print(
-                        f"Webhook {webhook_id} added for {args.event} events on {args.url}"
-                    )
+                    print(f"Webhook {webhook_id} added for {args.event} events on {args.url}")
                     logger.info(f"Added webhook {webhook_id}")
                 else:
                     print("Failed to add webhook")
@@ -1135,9 +1093,7 @@ def main(argv=None):
                 if not hooks:
                     print("No webhooks configured.")
                 for h in hooks:
-                    print(
-                        f"#{h['id']} [{h['event']}] {h['url']} (active={h['active']})"
-                    )
+                    print(f"#{h['id']} [{h['event']}] {h['url']} (active={h['active']})")
 
             elif args.webhook_command == "remove":
                 if remove_webhook(args.webhook_id):

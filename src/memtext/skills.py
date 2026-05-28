@@ -77,9 +77,7 @@ def context_retriever(query: dict) -> dict:
             limit=query.get("limit", 10),
         )
     else:
-        results = list_entries(
-            entry_type=query.get("type"), limit=query.get("limit", 10)
-        )
+        results = list_entries(entry_type=query.get("type"), limit=query.get("limit", 10))
 
     return {"status": "success", "results": results}
 
@@ -88,6 +86,7 @@ def context_pruner(query: dict) -> dict:
     """Find stale entries."""
     import datetime
     import sqlite3
+
     from memtext.db import get_db_path
 
     days = query.get("days", 30)
@@ -273,6 +272,7 @@ def skill_manager(action: dict) -> dict:
 
     elif action_type == "list":
         from memtext.core import get_context_dir
+
         ctx_dir = get_context_dir()
         skills_dir = ctx_dir / "skills" if ctx_dir.exists() else None
         skills = []

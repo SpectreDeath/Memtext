@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from .database import get_db_path, get_connection
-import sqlite3
-import logging
+from .database import get_connection, get_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,9 @@ class TemplateRegistry:
             """)
             conn.commit()
 
-    def create(self, name: str, description: str, entry_type: str, fields_schema: dict = {}) -> bool:
+    def create(
+        self, name: str, description: str, entry_type: str, fields_schema: dict = {}
+    ) -> bool:
         """Define a new template."""
         try:
             with get_connection(self.db_path) as conn:
@@ -66,7 +68,12 @@ class TemplateRegistry:
         if existing:
             return  # Already populated
         defaults = [
-            ("decision", "Architecture decision record", "decision", {"rationale": "text", "alternatives": "list"}),
+            (
+                "decision",
+                "Architecture decision record",
+                "decision",
+                {"rationale": "text", "alternatives": "list"},
+            ),
             ("note", "General note", "note", {"context": "text"}),
             ("error", "Error and workaround", "error", {"error_msg": "text", "fix": "text"}),
         ]

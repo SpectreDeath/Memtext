@@ -7,15 +7,19 @@ objects.
 
 from datetime import datetime
 from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 class Entry(BaseModel):
     """A memory entry (context item)."""
+
     id: Optional[int] = None
     title: str = Field(..., min_length=1, max_length=200)
     content: str = Field(..., min_length=1)
-    entry_type: str = Field(..., description="Type: decision, pattern, note, error, convention, memory")
+    entry_type: str = Field(
+        ..., description="Type: decision, pattern, note, error, convention, memory"
+    )
     tags: list[str] = Field(default_factory=list)
     importance: int = Field(default=1, ge=1, le=5)
     linked_files: list[str] = Field(default_factory=list)
@@ -31,6 +35,7 @@ class Entry(BaseModel):
 
 class SharedEntry(BaseModel):
     """A shared entry across projects."""
+
     id: Optional[int] = None
     title: str
     content: str
@@ -46,6 +51,7 @@ class SharedEntry(BaseModel):
 
 class Reminder(BaseModel):
     """A time-based reminder for an entry."""
+
     id: Optional[int] = None
     entry_id: int
     message: str
@@ -58,6 +64,7 @@ class Reminder(BaseModel):
 
 class Template(BaseModel):
     """A template for structured entries."""
+
     name: str
     description: str
     entry_type: str
@@ -68,6 +75,7 @@ class Template(BaseModel):
 
 class Webhook(BaseModel):
     """Registered webhook endpoint."""
+
     id: Optional[int] = None
     url: str
     event: str
@@ -80,6 +88,7 @@ class Webhook(BaseModel):
 
 class Project(BaseModel):
     """Registered project in the workspace."""
+
     id: Optional[int] = None
     path: str
     name: str
@@ -90,6 +99,7 @@ class Project(BaseModel):
 
 class VersionChange(BaseModel):
     """Audit log of entry modifications."""
+
     id: Optional[int] = None
     entry_id: int
     field_name: str

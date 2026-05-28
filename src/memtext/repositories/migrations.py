@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-import sqlite3
-
-from ..core import get_db_path, get_connection, log
+from ..core import get_connection, get_db_path, log
 
 
 class MigrationManager:
@@ -102,5 +101,7 @@ class MigrationManager:
                     FOREIGN KEY(entry_id) REFERENCES entries(id) ON DELETE CASCADE
                 )
             """)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(remind_at, completed)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(remind_at, completed)"
+            )
             conn.commit()

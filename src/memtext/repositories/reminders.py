@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Optional, List
-
-from .database import get_db_path, get_connection
 import logging
+from datetime import datetime
+from typing import List, Optional
+
+from .database import get_connection, get_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,7 @@ class ReminderService:
 
     def __init__(self, db_path=None, entry_manager=None):
         from ..repositories.database import EntryManager  # lazy to avoid circular
+
         self.db_path = db_path or get_db_path()
         self.entry_manager = entry_manager or EntryManager(self.db_path)
         self._ensure_table()
@@ -33,7 +34,9 @@ class ReminderService:
                     FOREIGN KEY(entry_id) REFERENCES context_entries(id) ON DELETE CASCADE
                 )
             """)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(remind_at, completed)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(remind_at, completed)"
+            )
             conn.commit()
 
     def add(self, entry_id: int, remind_at: datetime, message: str = "") -> int:
@@ -68,8 +71,6 @@ class ReminderService:
     def complete(self, reminder_id: int) -> bool:
         """Mark a reminder as done."""
         with get_connection(self.db_path) as conn:
-            result = conn.execute(
-                "UPDATE reminders SET completed = 1 WHERE id = ?", (reminder_id,)
-            )
+            result = conn.execute("UPDATE reminders SET completed = 1 WHERE id = ?", (reminder_id,))
             conn.commit()
             return result.rowcount > 0

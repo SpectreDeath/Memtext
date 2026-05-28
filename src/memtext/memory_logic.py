@@ -5,8 +5,8 @@ extract high-value memories from raw context, and track memory dependencies.
 """
 
 import re
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
 
 def get_prolog():
@@ -144,9 +144,7 @@ class DecisionExtractor:
             matches = re.findall(pattern, text, re.IGNORECASE)
             for match in matches:
                 if len(match) < 200:
-                    patterns.append(
-                        {"content": match, "type": pat_type, "category": "pattern"}
-                    )
+                    patterns.append({"content": match, "type": pat_type, "category": "pattern"})
         return patterns
 
     def extract_constraints(self, text: str) -> list:
@@ -220,9 +218,7 @@ class ContextOffloader:
 
         return [e[1] for e in sorted(scored, key=lambda x: x[0], reverse=True)]
 
-    def select_for_preservation(
-        self, entries: list, max_tokens: Optional[int] = None
-    ) -> list:
+    def select_for_preservation(self, entries: list, max_tokens: Optional[int] = None) -> list:
         """Select entries to preserve within token budget.
 
         Args:

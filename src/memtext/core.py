@@ -239,9 +239,7 @@ def synthesize_memories(source_text: str = None, recent_only: bool = True):
     if not logs_dir.exists():
         return 0
 
-    log_files = sorted(
-        logs_dir.glob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True
-    )
+    log_files = sorted(logs_dir.glob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True)
     if recent_only:
         log_files = log_files[:2]
 
@@ -353,6 +351,7 @@ def distill_logs(date_str: str = None, use_llm: bool = False, model: str = "llam
         if use_llm:
             try:
                 from memtext.llm import synthesize_with_local
+
                 content = log_file.read_text()
                 result = synthesize_with_local(content, model)
                 if result:
@@ -380,7 +379,9 @@ def distill_logs(date_str: str = None, use_llm: bool = False, model: str = "llam
 
             if distilled:
                 existing = log_file.read_text()
-                log_file.write_text(existing + "\n\n## Distilled Takeaways\n" + "\n".join(distilled))
+                log_file.write_text(
+                    existing + "\n\n## Distilled Takeaways\n" + "\n".join(distilled)
+                )
                 count += 1
 
     return count
@@ -404,24 +405,34 @@ def compile_context(mode: str = "active") -> str:
     skills_index = ctx_dir / "skills.md"
     if skills_index.exists():
         skills_content = skills_index.read_text()
-        skills_content = skills_content.replace("<!-- Skills index - auto-maintained by memtext add-skill -->\n", "")
+        skills_content = skills_content.replace(
+            "<!-- Skills index - auto-maintained by memtext add-skill -->\n", ""
+        )
         parts.append(skills_content)
 
     if mode == "active":
         logs_dir = ctx_dir / "session-logs"
         if logs_dir.exists():
-            log_files = sorted(logs_dir.glob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True)[:3]
+            log_files = sorted(
+                logs_dir.glob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True
+            )[:3]
             for log_file in log_files:
                 content = log_file.read_text()
                 if "## Distilled Takeaways" in content:
-                    distilled_match = re.search(r"## Distilled Takeaways.*?(?=\n## |\Z)", content, re.DOTALL)
+                    distilled_match = re.search(
+                        r"## Distilled Takeaways.*?(?=\n## |\Z)", content, re.DOTALL
+                    )
                     if distilled_match:
                         parts.append(distilled_match.group(0))
                 else:
                     lines = content.split("\n")
-                    key_lines = [ln for ln in lines if "@memory:" in ln or ln.strip().startswith(("*", "-"))]
+                    key_lines = [
+                        ln for ln in lines if "@memory:" in ln or ln.strip().startswith(("*", "-"))
+                    ]
                     if key_lines:
-                        parts.append(f"\n\n## Recent: {log_file.stem}\n" + "\n".join(key_lines[:20]))
+                        parts.append(
+                            f"\n\n## Recent: {log_file.stem}\n" + "\n".join(key_lines[:20])
+                        )
 
     return "\n".join(parts)
 

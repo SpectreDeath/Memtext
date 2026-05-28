@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+import shutil
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-import sqlite3
-import shutil
-import logging
-
-from .database import get_db_path, get_connection
+from .database import get_connection, get_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +57,9 @@ class BackupService:
         """Restore database from a backup."""
         with get_connection(self.db_path) as conn:
             if backup_path is None:
-                row = conn.execute("SELECT backup_path FROM _backups WHERE id = ?", (backup_id,)).fetchone()
+                row = conn.execute(
+                    "SELECT backup_path FROM _backups WHERE id = ?", (backup_id,)
+                ).fetchone()
                 if row is None:
                     return False
                 backup_path = Path(row["backup_path"])

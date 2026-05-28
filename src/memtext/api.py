@@ -4,27 +4,27 @@ Provides REST API and WebSocket endpoints for external agent integration.
 Requires: pip install memtext[api]
 """
 
-import os
 import json
-from pathlib import Path
-from datetime import datetime
-from typing import Optional, List
+import os
 from contextlib import asynccontextmanager
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
 
+import uvicorn
 from fastapi import (
     FastAPI,
+    Header,
     HTTPException,
     Query,
-    Header,
+    Request,
     WebSocket,
     WebSocketDisconnect,
-    Request,
 )
 from pydantic import BaseModel, Field
-import uvicorn
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 
 class EntryCreate(BaseModel):
@@ -134,7 +134,7 @@ async def list_entries(
 ):
     """List context entries."""
     await verify_api_key(x_api_key)
-    from memtext.db import query_entries, get_db_path
+    from memtext.db import get_db_path, query_entries
 
     if not get_db_path().exists():
         return []
@@ -166,7 +166,7 @@ async def get_entry(
 ):
     """Get a single entry by ID."""
     await verify_api_key(x_api_key)
-    from memtext.db import get_entry, update_entry, get_db_path
+    from memtext.db import get_db_path, get_entry, update_entry
 
     if not get_db_path().exists():
         raise HTTPException(status_code=404, detail="Entry not found")
@@ -255,7 +255,7 @@ async def update_entry_endpoint(
 ):
     """Update an existing entry."""
     await verify_api_key(x_api_key)
-    from memtext.db import update_entry, get_entry, get_db_path
+    from memtext.db import get_db_path, get_entry, update_entry
 
     if not get_db_path().exists():
         raise HTTPException(status_code=404, detail="Entry not found")
@@ -308,7 +308,7 @@ async def delete_entry_endpoint(
 ):
     """Delete an entry."""
     await verify_api_key(x_api_key)
-    from memtext.db import delete_entry, get_entry, get_db_path
+    from memtext.db import delete_entry, get_db_path, get_entry
 
     if not get_db_path().exists():
         raise HTTPException(status_code=404, detail="Entry not found")

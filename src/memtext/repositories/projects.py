@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from pathlib import Path
-from typing import Optional, List
-
 import logging
 import sqlite3
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +76,11 @@ class ProjectRegistry:
         for dirpath, dirnames, filenames in root.walk():
             if ".context" in dirnames:
                 project_path = Path(dirpath)
-                found.append({
-                    "path": str(project_path),
-                    "name": project_path.name,
-                    "registered": False,
-                })
+                found.append(
+                    {
+                        "path": str(project_path),
+                        "name": project_path.name,
+                        "registered": False,
+                    }
+                )
         return found

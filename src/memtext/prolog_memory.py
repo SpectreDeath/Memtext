@@ -19,11 +19,11 @@ Usage by agents:
     preservable = preserve_memory(entries)
 """
 
-import re
 import json
-from typing import Optional, List, Dict, Any
+import re
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from dataclasses import dataclass, asdict
+from typing import Any, Dict, List, Optional
 
 
 def get_prolog():
@@ -290,9 +290,7 @@ def preserve_memory(entries: List[Dict], max_count: int = 20) -> List[Dict]:
 
     if not pm.is_available():
         # Fallback: simple importance sorting
-        return sorted(entries, key=lambda e: e.get("importance", 1), reverse=True)[
-            :max_count
-        ]
+        return sorted(entries, key=lambda e: e.get("importance", 1), reverse=True)[:max_count]
 
     scored = []
     for entry in entries:

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
-from typing import Optional, List
-import urllib.request
-import urllib.error
 import logging
+import urllib.error
+import urllib.request
+from datetime import datetime
+from typing import List, Optional
 
-from .database import get_db_path, get_connection
+from .database import get_connection, get_db_path
 
 logger = logging.getLogger(__name__)
 

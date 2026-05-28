@@ -6,18 +6,18 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from memtext.core import (
-    init_context, 
-    get_context_dir, 
-    save_context, 
-    query_context, 
-    add_log, 
+    init_context,
+    get_context_dir,
+    save_context,
+    query_context,
+    add_log,
     migrate_to_db,
     add_skill,
     view_skill,
     distill_logs,
     compile_context,
     deprecate_entry,
-    prune_deprecated
+    prune_deprecated,
 )
 from memtext.db import get_entry, query_entries
 
@@ -64,19 +64,19 @@ def test_migrate_to_db(clean_ctx):
     save_context("Architecture decision 1")
     add_log("Epic log entry", session="S1")
     (clean_ctx / "identity.md").write_text("# Project Identity\nStack: Python")
-    
+
     count = migrate_to_db()
-    assert count >= 3 # Decision, Log section, Identity
-    
+    assert count >= 3  # Decision, Log section, Identity
+
     # Verify in DB
     results = query_entries(search_text="Architecture")
     assert len(results) > 0
     assert results[0]["entry_type"] == "decision"
-    
+
     results = query_entries(search_text="Epic")
     assert len(results) > 0
     assert results[0]["entry_type"] == "note"
-    
+
     results = query_entries(search_text="Identity")
     assert len(results) > 0
     assert results[0]["entry_type"] == "convention"

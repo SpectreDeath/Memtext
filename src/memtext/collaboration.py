@@ -2,11 +2,11 @@
 
 import json
 import zipfile
-from pathlib import Path
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Optional, List, Dict, Any
-from dataclasses import dataclass, field, asdict
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 class EventType(Enum):
@@ -97,7 +97,7 @@ class ProjectBundle:
 
     def export(self, include_shared: bool = True) -> Path:
         """Export project context to a .mtbundle file."""
-        from memtext.db import query_entries, get_db_path, init_db
+        from memtext.db import get_db_path, init_db, query_entries
 
         db_path = get_db_path()
         if not db_path.exists():

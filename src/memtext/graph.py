@@ -4,9 +4,9 @@ Tracks relationships between entries for better context retrieval.
 """
 
 import sqlite3
-from pathlib import Path
-from typing import Optional, List, Dict, Set
 from collections import defaultdict
+from pathlib import Path
+from typing import Dict, List, Optional, Set
 
 
 def get_graph_path() -> Path:
@@ -182,9 +182,7 @@ def auto_detect_relationships(content_pairs: List[tuple]) -> List[tuple]:
             # Check if content1 has keywords and references content2's key terms
             for rel_type, keywords_list in keywords.items():
                 has_keyword = any(kw in content1_lower for kw in keywords_list)
-                references_other = any(
-                    term in content1_lower for term in key_terms.get(id2, [])
-                )
+                references_other = any(term in content1_lower for term in key_terms.get(id2, []))
 
                 if has_keyword and references_other:
                     relationships.append((id1, id2, rel_type, 0.8))

@@ -13,9 +13,7 @@ class TestDecisionExtractor:
     def test_extract_decisions(self):
         extractor = DecisionExtractor()
 
-        text = (
-            "we chose PostgreSQL for the database and decided to use Redis for caching"
-        )
+        text = "we chose PostgreSQL for the database and decided to use Redis for caching"
         decisions = extractor.extract_decisions(text)
 
         assert len(decisions) > 0

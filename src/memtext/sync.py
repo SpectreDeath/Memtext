@@ -7,10 +7,10 @@ Uses GitPython for pythonic git operations.
 import json
 import subprocess
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 try:
-    from git import Repo, InvalidGitRepositoryError, GitCommandError
+    from git import GitCommandError, InvalidGitRepositoryError, Repo
 
     HAS_GITPYTHON = True
 except ImportError:

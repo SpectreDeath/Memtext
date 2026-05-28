@@ -6,16 +6,16 @@ Key derivation uses PBKDF2-HMAC-SHA256.
 
 import base64
 import hashlib
+import os
 from pathlib import Path
 from typing import Optional
 
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.backends import default_backend
-import os
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from memtext.db import get_db_path, update_entry, get_entry
+from memtext.db import get_db_path, get_entry, update_entry
 
 
 def derive_key(password: str, salt: Optional[bytes] = None) -> tuple[bytes, bytes]:
@@ -44,9 +44,7 @@ def encrypt_content(plaintext: str, password: str) -> tuple[str, bytes, bytes]:
     return ciphertext_b64, salt, nonce
 
 
-def decrypt_content(
-    ciphertext_b64: str, password: str, salt: bytes, nonce: bytes
-) -> str:
+def decrypt_content(ciphertext_b64: str, password: str, salt: bytes, nonce: bytes) -> str:
     """Decrypt content using AES-256-GCM. Returns plaintext."""
     key, _ = derive_key(password, salt)
     aesgcm = AESGCM(key)
@@ -100,9 +98,7 @@ def encrypt_entry(entry_id: int, password: str) -> bool:
         success = update_entry(
             entry_id,
             is_encrypted=1,
-            encrypted_content=entry.get(
-                "encrypted_content", ""
-            ),  # preserve existing if any
+            encrypted_content=entry.get("encrypted_content", ""),  # preserve existing if any
         )
         # Actually we need to set encrypted_content properly
         conn = __import__("sqlite3").connect(get_db_path())

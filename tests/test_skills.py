@@ -4,12 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from memtext.skills import (
-    context_manager,
-    context_retriever,
-    context_pruner,
-    project_manager
-)
+from memtext.skills import context_manager, context_retriever, context_pruner, project_manager
 from memtext.db import init_db
 
 
@@ -27,7 +22,7 @@ def test_context_manager_add(clean_env):
         "title": "Skill Note",
         "content": "Added via skill",
         "type": "note",
-        "importance": 3
+        "importance": 3,
     }
     result = context_manager(action)
     assert result["status"] == "success"
@@ -35,12 +30,8 @@ def test_context_manager_add(clean_env):
 
 
 def test_context_retriever(clean_env):
-    context_manager({
-        "action": "add", 
-        "title": "Searchable", 
-        "content": "Find me"
-    })
-    
+    context_manager({"action": "add", "title": "Searchable", "content": "Find me"})
+
     query = {"search": "Searchable"}
     result = context_retriever(query)
     assert result["status"] == "success"

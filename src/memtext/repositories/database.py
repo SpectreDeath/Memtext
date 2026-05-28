@@ -6,15 +6,14 @@ All classes share a common database path and connection handling.
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Generator, Optional
 
-import sqlite3
-import logging
-
-from ..models import Entry, SharedEntry, Reminder, Template, Webhook, Project, VersionChange
+from ..models import Entry, Project, Reminder, SharedEntry, Template, VersionChange, Webhook
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +57,12 @@ class EntryManager:
                     FOREIGN KEY (project_id) REFERENCES projects(id)
                 )
             """)
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_context_entries_type ON context_entries(entry_type)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_context_entries_parent ON context_entries(parent_tag)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_context_entries_type ON context_entries(entry_type)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_context_entries_parent ON context_entries(parent_tag)"
+            )
             conn.commit()
 
     def add(
@@ -102,9 +105,7 @@ class EntryManager:
         """Retrieve a single entry by ID."""
         conn = get_connection(self.db_path)
         conn.row_factory = sqlite3.Row
-        row = conn.execute(
-            "SELECT * FROM context_entries WHERE id = ?", (entry_id,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM context_entries WHERE id = ?", (entry_id,)).fetchone()
         if row is None:
             conn.close()
             return None
@@ -121,7 +122,15 @@ class EntryManager:
         """Update an entry. Returns True if modified."""
         if not kwargs:
             return False
-        allowed = {"title", "content", "entry_type", "tags", "importance", "linked_files", "parent_tag"}
+        allowed = {
+            "title",
+            "content",
+            "entry_type",
+            "tags",
+            "importance",
+            "linked_files",
+            "parent_tag",
+        }
         updates = {k: v for k, v in kwargs.items() if k in allowed}
         if not updates:
             return False
@@ -140,7 +149,9 @@ class EntryManager:
             conn.commit()
             return result.rowcount > 0
 
-    def list(self, entry_type: Optional[str] = None, limit: int = 100, parent_tag: Optional[str] = None) -> list[dict]:
+    def list(
+        self, entry_type: Optional[str] = None, limit: int = 100, parent_tag: Optional[str] = None
+    ) -> list[dict]:
         """List entries, optionally filtered."""
         query = "SELECT * FROM context_entries WHERE 1=1"
         params = []
@@ -168,7 +179,9 @@ class EntryManager:
             ).fetchone()
             return row is not None
 
-    def search(self, query_text: str, entry_type: Optional[str] = None, limit: int = 20) -> list[dict]:
+    def search(
+        self, query_text: str, entry_type: Optional[str] = None, limit: int = 20
+    ) -> list[dict]:
         """Simple LIKE-based search across entries."""
         conn = get_connection(self.db_path)
         conn.row_factory = sqlite3.Row

@@ -4,12 +4,14 @@ This module provides an abstraction layer over SQLite.
 All database operations go through repository classes defined in repositories/.
 """
 
-from .repositories.database import EntryManager, get_connection, get_db_path as _local_get_db_path
-from .repositories.templates import TemplateRegistry
 from .repositories.backups import BackupService
+from .repositories.database import EntryManager, get_connection
+from .repositories.database import get_db_path as _local_get_db_path
+from .repositories.projects import ProjectRegistry
+from .repositories.projects import get_db_path as _registry_get_db_path
 from .repositories.reminders import ReminderService
+from .repositories.templates import TemplateRegistry
 from .repositories.webhooks import WebhookService
-from .repositories.projects import ProjectRegistry, get_db_path as _registry_get_db_path
 
 # Use local get_db_path for project context entries
 get_db_path = _local_get_db_path
@@ -20,18 +22,21 @@ PROJECT_REGISTRY = None
 def get_db_version() -> int:
     """Get current schema version for migrations."""
     from .repositories.migrations import MigrationManager
+
     return MigrationManager().get_current_version()
 
 
 def run_migrations():
     """Run all pending migrations."""
     from .repositories.migrations import MigrationManager
+
     MigrationManager().apply(8, "Complete migration suite")
 
 
 def record_version_change(entry_id: int, field_name: str, old_value: str, new_value: str) -> bool:
     """Record a version change in the version_history table."""
     from .repositories.migrations import MigrationManager
+
     mm = MigrationManager()
     mm._ensure_meta_table()
     with get_connection(mm.db_path) as conn:
@@ -45,6 +50,7 @@ def record_version_change(entry_id: int, field_name: str, old_value: str, new_va
 
 def init_db():
     from .core import init_context
+
     return init_context()
 
 
@@ -76,8 +82,15 @@ def list_entries(entry_type=None, limit=100, parent_tag=None):
     return em.list(entry_type, limit, parent_tag)
 
 
-def query_entries(search_text=None, entry_type=None, min_importance=0, tags=None,
-                  parent_tag=None, limit=20, use_fts=True):
+def query_entries(
+    search_text=None,
+    entry_type=None,
+    min_importance=0,
+    tags=None,
+    parent_tag=None,
+    limit=20,
+    use_fts=True,
+):
     em = EntryManager()
     return em.search(search_text or "", entry_type, limit)
 

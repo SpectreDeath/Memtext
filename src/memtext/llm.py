@@ -4,11 +4,11 @@ Supports local models via Ollama (free) or OpenAI as optional.
 Requires: pip install memtext[llm]
 """
 
-import os
 import json
+import os
 import re
-from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -43,13 +43,11 @@ def is_local_available() -> bool:
         return False
 
 
-def synthesize_with_local(
-    context: str, model: str = "llama3"
-) -> Optional[SynthesisResult]:
+def synthesize_with_local(context: str, model: str = "llama3") -> Optional[SynthesisResult]:
     """Synthesize using local Ollama model."""
     try:
-        import urllib.request
         import urllib.parse
+        import urllib.request
 
         prompt = f"""Extract key memories from this context. Return a JSON object with:
 - "summary": Brief summary (50 words max)
@@ -88,9 +86,7 @@ Context:
         return None
 
 
-def synthesize_with_openai(
-    context: str, model: str = "gpt-4o-mini"
-) -> Optional[SynthesisResult]:
+def synthesize_with_openai(context: str, model: str = "gpt-4o-mini") -> Optional[SynthesisResult]:
     """Synthesize using OpenAI (requires paid API key)."""
     client = get_llm_client()
     if not client:
@@ -187,8 +183,7 @@ def get_synthesis_prompt() -> str:
 def check_llm_available() -> Dict[str, bool]:
     """Check which LLM options are available."""
     return {
-        "openai": get_llm_client() is not None
-        and bool(os.environ.get("OPENAI_API_KEY")),
+        "openai": get_llm_client() is not None and bool(os.environ.get("OPENAI_API_KEY")),
         "local": is_local_available(),
     }
 

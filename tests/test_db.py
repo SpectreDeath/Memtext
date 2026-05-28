@@ -6,16 +6,16 @@ import sqlite3
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from memtext.db import (
-    init_db, 
-    get_db_path, 
-    add_entry, 
-    get_entry, 
-    update_entry, 
-    delete_entry, 
+    init_db,
+    get_db_path,
+    add_entry,
+    get_entry,
+    update_entry,
+    delete_entry,
     query_entries,
     register_project,
     list_projects,
-    entry_exists
+    entry_exists,
 )
 
 
@@ -45,7 +45,7 @@ def test_db_has_required_tables(clean_db):
 def test_add_and_get_entry(clean_db):
     entry_id = add_entry("Test Title", "Test Content", tags=["tag1", "tag2"])
     assert entry_id > 0
-    
+
     entry = get_entry(entry_id)
     assert entry["title"] == "Test Title"
     assert entry["content"] == "Test Content"
@@ -70,7 +70,7 @@ def test_update_entry(clean_db):
     entry_id = add_entry("Old Title", "Old Content")
     success = update_entry(entry_id, title="New Title", importance=5)
     assert success is True
-    
+
     entry = get_entry(entry_id)
     assert entry["title"] == "New Title"
     assert entry["importance"] == 5
@@ -85,10 +85,10 @@ def test_delete_entry(clean_db):
 def test_query_entries(clean_db):
     add_entry("Python logic", "Writing code", tags=["py"])
     add_entry("Java logic", "More code", tags=["java"])
-    
+
     results = query_entries(search_text="logic")
     assert len(results) == 2
-    
+
     results = query_entries(tags="py")
     assert len(results) == 1
     assert results[0]["title"] == "Python logic"
@@ -98,10 +98,10 @@ def test_project_registry(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     # Monkeypatch the registry path to avoid polluting home config
     monkeypatch.setattr("memtext.db.PROJECT_REGISTRY", tmp_path / "projects.db")
-    
+
     p_id = register_project(str(tmp_path), "TestProj")
     assert p_id > 0
-    
+
     projects = list_projects()
     assert len(projects) == 1
     assert projects[0]["name"] == "TestProj"
