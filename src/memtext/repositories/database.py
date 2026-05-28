@@ -8,12 +8,9 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Generator, Optional
-
-from ..models import Entry, Project, Reminder, SharedEntry, Template, VersionChange, Webhook
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 

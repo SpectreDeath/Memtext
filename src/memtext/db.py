@@ -8,7 +8,6 @@ from .repositories.backups import BackupService
 from .repositories.database import EntryManager, get_connection
 from .repositories.database import get_db_path as _local_get_db_path
 from .repositories.projects import ProjectRegistry
-from .repositories.projects import get_db_path as _registry_get_db_path
 from .repositories.reminders import ReminderService
 from .repositories.templates import TemplateRegistry
 from .repositories.webhooks import WebhookService
