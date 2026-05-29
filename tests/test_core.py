@@ -123,3 +123,34 @@ def test_deprecate_entry(clean_ctx):
     content = (clean_ctx / "test-decision.md").read_text()
     assert "status: deprecated" in content
     assert "superseded_by: new-decision" in content
+
+
+def test_update_entry(clean_ctx):
+    from memtext.db import add_entry, get_entry
+
+    entry_id = add_entry("Original Title", "Original content", importance=1)
+    assert entry_id > 0
+
+    from memtext.repositories.database import EntryManager
+    em = EntryManager()
+    success = em.update(entry_id, title="Updated Title", importance=5)
+    assert success is True
+
+    entry = get_entry(entry_id)
+    assert entry["title"] == "Updated Title"
+    assert entry["importance"] == 5
+
+
+def test_update_entry_cli(clean_ctx, capsys):
+    from memtext.db import add_entry
+
+    entry_id = add_entry("CLI Test", "Original content")
+
+    import sys
+    sys.argv = ["memtext", "update", str(entry_id), "--title", "CLI Updated"]
+    from memtext.cli import main
+    main()
+
+    from memtext.db import get_entry
+    entry = get_entry(entry_id)
+    assert entry["title"] == "CLI Updated"

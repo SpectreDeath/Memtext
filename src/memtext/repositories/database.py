@@ -49,6 +49,7 @@ class EntryManager:
                     project_id INTEGER,
                     reminder_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP,
                     last_accessed TIMESTAMP,
                     access_count INTEGER DEFAULT 0,
                     FOREIGN KEY (project_id) REFERENCES projects(id)
