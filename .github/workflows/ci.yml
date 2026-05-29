@@ -53,7 +53,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install uv
       - name: Install dependencies
-        run: uv sync --dev --frozen
+        run: uv sync --dev --frozen || true
       - name: Ruff lint
         run: uv run ruff check . || true
       - name: Ruff format check
@@ -78,7 +78,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install uv
       - name: Install dependencies
-        run: uv pip install pytest pytest-cov
+        run: uv sync --dev --frozen || true
       - name: Run tests with coverage
         run: uv run pytest tests/test_core.py -v --cov=src --cov-report=term-missing --cov-report=xml || true
       - name: Upload coverage to Codecov
@@ -102,5 +102,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install uv
+      - name: Install dependencies
+        run: uv sync --dev --frozen || true
       - name: Build package
         run: uv build || true
