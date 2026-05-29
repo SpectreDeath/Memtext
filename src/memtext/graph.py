@@ -4,9 +4,8 @@ Tracks relationships between entries for better context retrieval.
 """
 
 import sqlite3
-from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Dict, List
 
 
 def get_graph_path() -> Path:
@@ -73,8 +72,8 @@ def add_relationship(
         conn = sqlite3.connect(graph_path)
         cursor = conn.cursor()
         cursor.execute(
-            """INSERT OR REPLACE INTO relationships 
-               (source_id, target_id, relationship_type, strength) 
+            """INSERT OR REPLACE INTO relationships
+               (source_id, target_id, relationship_type, strength)
                VALUES (?, ?, ?, ?)""",
             (source_id, target_id, relationship_type, strength),
         )
@@ -156,7 +155,7 @@ def auto_detect_relationships(content_pairs: List[tuple]) -> List[tuple]:
         List of (source_id, target_id, relationship_type, strength) tuples
     """
     relationships = []
-    content_by_id = {cid: content.lower() for cid, content in content_pairs}
+    {cid: content.lower() for cid, content in content_pairs}
 
     # Extract key terms from each entry (first few words or important nouns)
     key_terms = {}
@@ -457,13 +456,13 @@ function dragended(event, d) { if (!event.active) simulation.alphaTarget(0); d.f
             }
         )
     links_json = []
-    for l in links:
+    for link in links:
         links_json.append(
             {
-                "source": l["source_id"],
-                "target": l["target_id"],
-                "relationship_type": l.get("relationship_type", "related"),
-                "strength": l.get("strength", 1.0),
+                "source": link["source_id"],
+                "target": link["target_id"],
+                "relationship_type": link.get("relationship_type", "related"),
+                "strength": link.get("strength", 1.0),
             }
         )
 
