@@ -1,25 +1,24 @@
-import pytest
 import sys
 from pathlib import Path
-from datetime import datetime
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from memtext.core import (
-    init_context,
-    get_context_dir,
-    save_context,
-    query_context,
     add_log,
-    migrate_to_db,
     add_skill,
-    view_skill,
-    distill_logs,
     compile_context,
     deprecate_entry,
-    prune_deprecated,
+    distill_logs,
+    get_context_dir,
+    init_context,
+    migrate_to_db,
+    query_context,
+    save_context,
+    view_skill,
 )
-from memtext.db import get_entry, query_entries
+from memtext.db import query_entries
 
 
 @pytest.fixture

@@ -5,13 +5,11 @@ Key derivation uses PBKDF2-HMAC-SHA256.
 """
 
 import base64
-import hashlib
 import os
-from pathlib import Path
 from typing import Optional
 
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
@@ -95,7 +93,7 @@ def encrypt_entry(entry_id: int, password: str) -> bool:
             "salt": base64.b64encode(salt).decode("utf-8"),
             "nonce": base64.b64encode(nonce).decode("utf-8"),
         }
-        success = update_entry(
+        update_entry(
             entry_id,
             is_encrypted=1,
             encrypted_content=entry.get("encrypted_content", ""),  # preserve existing if any

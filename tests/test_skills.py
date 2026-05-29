@@ -1,11 +1,12 @@
-import pytest
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from memtext.skills import context_manager, context_retriever, context_pruner, project_manager
 from memtext.db import init_db
+from memtext.skills import context_manager, context_pruner, context_retriever, project_manager
 
 
 @pytest.fixture

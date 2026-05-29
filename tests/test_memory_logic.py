@@ -1,9 +1,10 @@
 """Tests for memory_logic module."""
 
 import pytest
+
 from memtext.memory_logic import (
-    DecisionExtractor,
     ContextOffloader,
+    DecisionExtractor,
     MemorySynthesizer,
     check_prolog_available,
 )

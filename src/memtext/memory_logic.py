@@ -5,7 +5,6 @@ extract high-value memories from raw context, and track memory dependencies.
 """
 
 import re
-from pathlib import Path
 from typing import Optional
 
 
@@ -191,7 +190,7 @@ class ContextOffloader:
             score = 1  # base score
             entry_type = entry.get("entry_type", "").lower()
             content = entry.get("content", "").lower()
-            title = entry.get("title", "").lower()
+            entry.get("title", "").lower()
 
             if entry_type == "decision" or "decision" in content or "decide" in content:
                 score += 3
@@ -256,7 +255,7 @@ class ContextOffloader:
         for entry in entries:
             entry_id = entry.get("id")
             content = entry.get("content", "")
-            title = entry.get("title", "")
+            entry.get("title", "")
 
             deps = set()
 

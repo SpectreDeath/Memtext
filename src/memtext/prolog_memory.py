@@ -19,11 +19,7 @@ Usage by agents:
     preservable = preserve_memory(entries)
 """
 
-import json
-import re
-from dataclasses import asdict, dataclass
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 def get_prolog():
@@ -69,7 +65,7 @@ important(Type) :- is_type(note), is_type(Type), Type == note.
 important(Type) :- is_type(error), is_type(Type), Type == error.
 
 % ============================================
-% PRESERVATION RULES  
+% PRESERVATION RULES
 % ============================================
 
 % Always preserve important memories
@@ -97,7 +93,7 @@ has_keyword(must).
 has_keyword(convention).
 has_keyword(standard).
 
-% Pattern detection keywords  
+% Pattern detection keywords
 has_keyword(pattern).
 has_keyword(recurring).
 has_keyword(common).

@@ -1,15 +1,16 @@
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from memtext.core import (
-    init_context,
-    get_context_dir,
-    add_log,
-    synthesize_memories,
     SYNTHESIS_PROMPT,
+    add_log,
+    get_context_dir,
+    init_context,
+    synthesize_memories,
 )
 from memtext.db import init_db, query_entries
 

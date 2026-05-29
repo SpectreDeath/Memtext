@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import pytest
-from unittest.mock import Mock, patch, MagicMock
 
 
 class TestAPI:

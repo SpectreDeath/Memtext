@@ -1,21 +1,22 @@
-import pytest
+import sqlite3
 import sys
 from pathlib import Path
-import sqlite3
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from memtext.db import (
-    init_db,
-    get_db_path,
     add_entry,
-    get_entry,
-    update_entry,
     delete_entry,
+    entry_exists,
+    get_db_path,
+    get_entry,
+    init_db,
+    list_projects,
     query_entries,
     register_project,
-    list_projects,
-    entry_exists,
+    update_entry,
 )
 
 

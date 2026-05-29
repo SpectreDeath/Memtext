@@ -6,7 +6,6 @@ Requires: pip install memtext[llm]
 
 import json
 import os
-import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -82,7 +81,7 @@ Context:
                 tags=response_data.get("tags", []),
                 relationships=response_data.get("relationships", []),
             )
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -126,7 +125,7 @@ Context:
             tags=response_data.get("tags", []),
             relationships=response_data.get("relationships", []),
         )
-    except Exception as e:
+    except Exception:
         return None
 
 

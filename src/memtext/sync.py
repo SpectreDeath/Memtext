@@ -5,7 +5,6 @@ Uses GitPython for pythonic git operations.
 """
 
 import json
-import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -15,8 +14,6 @@ try:
     HAS_GITPYTHON = True
 except ImportError:
     HAS_GITPYTHON = False
-
-from memtext.db import get_db_path
 
 
 def get_sync_config_path() -> Path:
@@ -61,7 +58,7 @@ def init_git_repo() -> Optional[Path]:
         return None
 
     try:
-        repo = Repo.init(ctx_dir)
+        Repo.init(ctx_dir)
         gitignore = ctx_dir / ".gitignore"
         if not gitignore.exists():
             gitignore.write_text("# Memtext context files\n*.db\n*.log\n")

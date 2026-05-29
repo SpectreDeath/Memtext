@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 from .database import get_connection, get_db_path
 
