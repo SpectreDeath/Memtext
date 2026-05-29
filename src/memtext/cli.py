@@ -154,6 +154,13 @@ def main(argv=None):
     list_parser.add_argument("--parent-tag", help="Filter by parent tag")
     list_parser.add_argument("--limit", type=int, default=10)
 
+    update_parser = subparsers.add_parser("update", help="Update an entry")
+    update_parser.add_argument("entry_id", type=int, help="Entry ID to update")
+    update_parser.add_argument("--title", help="New title")
+    update_parser.add_argument("--content", help="New content")
+    update_parser.add_argument("--importance", type=int, help="New importance (1-5)")
+    update_parser.add_argument("--tags", nargs="*", help="Replace tags")
+
     projects_parser = subparsers.add_parser("projects", help="List projects")
     projects_parser.add_argument("--scan", action="store_true", help="Scan for projects")
 
@@ -537,6 +544,26 @@ def main(argv=None):
                 print("No entries found.")
             for e in entries:
                 print(f"[{e['id']}] {e['title']} ({e['entry_type']})")
+
+        elif args.command == "update":
+            require_context_dir()
+            from memtext.repositories.database import EntryManager
+
+            entry_mgr = EntryManager()
+            kwargs = {}
+            if args.title:
+                kwargs["title"] = args.title
+            if args.content:
+                kwargs["content"] = args.content
+            if args.importance is not None:
+                kwargs["importance"] = args.importance
+            if args.tags:
+                kwargs["tags"] = ",".join(args.tags)
+            success = entry_mgr.update(args.entry_id, **kwargs)
+            if success:
+                print(f"Updated entry {args.entry_id}")
+            else:
+                print(f"Entry {args.entry_id} not found")
 
         elif args.command == "projects":
             from memtext.repositories.projects import ProjectRegistry
