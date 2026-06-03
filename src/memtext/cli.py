@@ -166,6 +166,8 @@ def main(argv=None):
 
     subparsers.add_parser("migrate", help="Migrate v0.1.x to v0.2.0")
 
+    subparsers.add_parser("db-status", help="Show current database backend and connection info")
+
     synth_parser = subparsers.add_parser(
         "synthesize",
         help="Synthesize logs into memories",
@@ -514,25 +516,24 @@ def main(argv=None):
             if not args.content:
                 print("Note: Using title as content. Use --content to specify separate content.")
             try:
-                from memtext.db import get_entry
-                from memtext.repositories.database import EntryManager
-
-                entry_mgr = EntryManager()
-                entry_id = entry_mgr.add(
+                from memtext.db import add_entry
+                
+                entry_id = add_entry(
                     args.text,
                     content,
                     args.type,
                     args.tags,
+                    args.parent_tag,
                     importance=args.importance,
-                    parent_tag=args.parent_tag,
                 )
                 if entry_id > 0:
-                    print(f"Saved entry {entry_id}")
-                    logger.info(f"Added entry: {args.text}")
+                    print(f' Saved entry {entry_id} ')
+                    logger.info(f' Added entry: {args.text} ')
                 else:
-                    print("Entry already exists. Use a different title.")
+                    print(' Entry already exists. Use a different title. ')
             except Exception as e:
-                raise DatabaseError(f"Failed to add entry: {e}")
+                raise DatabaseError(f' Failed to add entry: {e} ')
+
 
         elif args.command == "list":
             require_context_dir()
@@ -589,6 +590,48 @@ def main(argv=None):
             print(f"Migrated {count} entries to SQLite")
             logger.info(f"Migrated {count} entries")
 
+        elif args.command == "db-status":
+            from memtext.db import is_postgres_enabled, get_entry_manager, get_db_path
+            import os
+            
+            if is_postgres_enabled():
+                print("Database backend: PostgreSQL")
+                print("Connection string: ", end="")
+                db_url = os.environ.get("MEMTEXT_DATABASE_URL", "")
+                # Mask credentials in the URL for security
+                if db_url:
+                    # Simple masking - in practice, you'd want to parse the URL properly
+                    if "@" in db_url:
+                        protocol, rest = db_url.split("://", 1)
+                        if "@" in rest:
+                            credentials, hostinfo = rest.split("@", 1)
+                            masked_url = f"{protocol}://****:****@{hostinfo}"
+                            print(masked_url)
+                        else:
+                            print(db_url)
+                    else:
+                        print(db_url)
+                else:
+                    print("Not set")
+                
+                # Show some information about the PostgreSQL connection
+                try:
+                    import asyncio
+                    entry_manager = get_entry_manager()
+                    if hasattr(entry_manager, '_init_db'):
+                        # Try to initialize and get version
+                        asyncio.run(entry_manager._init_db())
+                        print("PostgreSQL extensions: vector, pg_trgm, btree_gin (if available)")
+                except Exception as e:
+                    print(f"PostgreSQL connection test failed: {e}")
+            else:
+                print("Database backend: SQLite (default)")
+                db_path = get_db_path()
+                print(f"Database file: {db_path.absolute()}")
+                if db_path.exists():
+                    print("Database status: Initialized")
+                else:
+                    print("Database status: Not initialized (run 'memtext init')")
         elif args.command == "synthesize":
             count = synthesize_memories(source_text=args.text, recent_only=not args.all)
             print(f"Synthesized {count} new memories from logs")

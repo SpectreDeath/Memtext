@@ -1,4 +1,4 @@
-# Memtext - Context Offloading for AI Agents
+﻿# Memtext - Context Offloading for AI Agents
 
 Persistent memory across sessions for coding agents.
 
@@ -32,9 +32,14 @@ memtext query "database decisions"
 
 ```
 .context/
-├── .gitignore
-├── identity.md     # Project purpose, stack, conventions
-├── decisions.md    # Architecture decisions
-└── session-logs/   # Episodic notes
-    └── 2026-04-10.md
+   .gitignore
+   identity.md     # Project purpose, stack, conventions
+   decisions.md    # Architecture decisions
+   session-logs/   # Episodic notes
+     2026-04-10.md
 ```
+
+
+## PostgreSQL Support
+
+Memtext supports PostgreSQL as an alternative database backend for advanced features. See [PostgreSQL Documentation](docs/postgres.md) for details on setup and usage.

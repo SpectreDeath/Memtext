@@ -1,0 +1,93 @@
+[
+  {
+    "id": "evt_001",
+    "timestamp": "2026-06-02T10:00:00Z",
+    "type": "login_attempt",
+    "value": 1,
+    "source_ip": "192.168.1.100",
+    "username": "admin",
+    "success": false
+  },
+  {
+    "id": "evt_002",
+    "timestamp": "2026-06-02T10:00:15Z",
+    "type": "login_attempt",
+    "value": 1,
+    "source_ip": "192.168.1.100",
+    "username": "admin",
+    "success": false
+  },
+  {
+    "id": "evt_003",
+    "timestamp": "2026-06-02T10:00:30Z",
+    "type": "login_attempt",
+    "value": 1,
+    "source_ip": "192.168.1.100",
+    "username": "admin",
+    "success": false
+  },
+  {
+    "id": "evt_004",
+    "timestamp": "2026-06-02T10:05:00Z",
+    "type": "process_creation",
+    "value": 5,
+    "process_name": "powershell.exe",
+    "command_line": "powershell.exe -ep bypass -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABTAHkAcwB0AGUAbQAuAE4AZQB0AC4A",
+    "success": true
+  },
+  {
+    "id": "evt_005",
+    "timestamp": "2026-06-02T10:05:05Z",
+    "type": "network_connection",
+    "value": 3,
+    "destination_ip": "185.141.63.120",
+    "destination_port": 443,
+    "protocol": "TCP",
+    "success": true
+  },
+  {
+    "id": "evt_006",
+    "timestamp": "2026-06-02T10:05:10Z",
+    "type": "file_creation",
+    "value": 2,
+    "file_path": "C:\\Users\\Public\\svchost.exe",
+    "size": 102400,
+    "success": true
+  },
+  {
+    "id": "evt_007",
+    "timestamp": "2026-06-02T10:10:00Z",
+    "type": "registry_modification",
+    "value": 4,
+    "key": "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+    "name": "UpdateService",
+    "value_data": "C:\\Users\\Public\\svchost.exe",
+    "success": true
+  },
+  {
+    "id": "evt_008",
+    "timestamp": "2026-06-02T10:15:00Z",
+    "type": "login_attempt",
+    "value": 1,
+    "source_ip": "10.0.0.50",
+    "username": "administrator",
+    "success": true
+  },
+  {
+    "id": "evt_009",
+    "timestamp": "2026-06-02T10:15:05Z",
+    "type": "privilege_escalation",
+    "value": 8,
+    "technique": "Token Manipulation",
+    "success": true
+  },
+  {
+    "id": "evt_010",
+    "timestamp": "2026-06-02T10:20:00Z",
+    "type": "data_exfiltration",
+    "value": 10,
+    "bytes_transferred": 5242880,
+    "destination": "185.141.63.120:443",
+    "success": true
+  }
+]

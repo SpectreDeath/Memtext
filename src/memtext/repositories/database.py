@@ -55,6 +55,14 @@ class EntryManager:
                     FOREIGN KEY (project_id) REFERENCES projects(id)
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS projects (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT
+                )
+            """)
+            conn.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS context_fts USING fts5(title, content)
+            """)
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_context_entries_type ON context_entries(entry_type)"
             )
@@ -206,3 +214,4 @@ class EntryManager:
                 (entry_id,),
             ).fetchall()
             return [dict(r) for r in rows]
+

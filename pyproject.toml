@@ -38,6 +38,10 @@ api = [
 llm = [
     "openai>=1.0",
 ]
+postgres = [
+    "asyncpg>=0.29.0",
+    "pgvector>=0.2.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
