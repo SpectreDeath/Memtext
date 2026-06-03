@@ -109,6 +109,29 @@ def validate_entry_type(value: str) -> str:
     return value
 
 
+def _parse_tags(tags_value) -> list:
+    """Parse tags value from database into a list of strings.
+    
+    Handles both actual list objects (from PostgreSQL) and string representations
+    of lists (from SQLite).
+    """
+    if isinstance(tags_value, list):
+        return tags_value
+    if isinstance(tags_value, str):
+        # Handle string representation of a list like "['tag1', 'tag2']"
+        try:
+            import ast
+            parsed = ast.literal_eval(tags_value)
+            if isinstance(parsed, list):
+                return [str(tag) for tag in parsed]
+        except (ValueError, SyntaxError):
+            pass
+        # If parsing fails, treat as a comma-separated string
+        if tags_value.strip():
+            return [tag.strip() for tag in tags_value.split(',') if tag.strip()]
+    return []
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="memtext",
@@ -131,6 +154,7 @@ def main(argv=None):
     query_parser = subparsers.add_parser("query", help="Search context")
     query_parser.add_argument("text", help="Search query")
     query_parser.add_argument("--limit", type=int, default=5, help="Max results")
+    query_parser.add_argument("--max-tokens", type=int, help="Maximum tokens to return in results")
 
     log_parser = subparsers.add_parser("log", help="Add session log entry")
     log_parser.add_argument("text", help="Session note")
@@ -478,12 +502,55 @@ def main(argv=None):
             if not args.text:
                 raise ValidationError("Search query is required")
             require_context_dir()
-            results = query_context(args.text, args.limit)
+            
+            # Use PostgreSQL hybrid search if available and embeddings can be generated
+            # For now, fall back to regular search but respect token limits
+            from memtext.db import query_entries
+            
+            # Get more results than needed to allow for token-based filtering
+            fetch_limit = min(args.limit * 3, 50)  # Fetch up to 3x requested limit, max 50
+            results = query_entries(search_text=args.text, limit=fetch_limit)
+            
+            # Apply token budget gating if specified
+            if args.max_tokens is not None:
+                # Simple token estimation: ~4 characters per token
+                max_chars = args.max_tokens * 4
+                truncated_results = []
+                current_chars = 0
+                
+                for result in results:
+                    # Estimate chars for this result: title + content
+                    result_chars = len(result.get('title', '')) + len(result.get('content', ''))
+                    if current_chars + result_chars <= max_chars:
+                        truncated_results.append(result)
+                        current_chars += result_chars
+                    else:
+                        # If we can't fit the full result, try to include a truncated version
+                        remaining_chars = max_chars - current_chars
+                        if remaining_chars > 50:  # Only if we can fit meaningful content
+                            # Truncate the content to fit
+                            truncated_result = result.copy()
+                            content = result.get('content', '')
+                            if len(content) > remaining_chars:
+                                truncated_result['content'] = content[:remaining_chars] + "..."
+                            truncated_results.append(truncated_result)
+                        break
+                
+                results = truncated_results
+            else:
+                # Just limit to the requested number
+                results = results[:args.limit]
+            
             if not results:
                 print("No results found.")
             for r in results:
-                print(f"[{r['file']}] {r['line']}")
-                print(f"  {r['content'][:200]}")
+                print(f"[{r.get('entry_type', 'note').upper()}] {r.get('title', 'Untitled')}")
+                print(f"  {r.get('content', '')[:200]}{'...' if len(r.get('content', '')) > 200 else ''}")
+                print(f"  Importance: {r.get('importance', 1)} | Tags: {', '.join(_parse_tags(r.get('tags')))}")
+                if r.get('source') != 'manual':
+                    print(f"  Source: {r.get('source')}")
+                if r.get('trust_score', 1.0) < 1.0:
+                    print(f"  Trust Score: {r.get('trust_score'):.2f}")
                 print()
 
         elif args.command == "log":

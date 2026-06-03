@@ -156,7 +156,56 @@ Migrates v0.1.x filesystem context to SQLite database.
 - **Before answering**: Query context for relevant prior decisions
 - **After making decision**: `memtext save` to record
 - **Session end**: `memtext log` to summarize
+- **After LLM calls**: Use `memtext log` or `memtext add` to capture insights (see post_llm_call hook below)
 - **Periodic**: `memtext synthesize` to extract memories
+
+### Automatic post_llm_call Hook
+
+To ensure valuable context from agent interactions is automatically preserved, integrate the following pattern into your agent frameworks:
+
+#### For LangChain Agents
+```python
+from memtext.cli import main
+import subprocess
+
+def memtext_post_llm_hook(llm_output: str, context: str = ""):
+    """Hook to call after LLM execution to save insights"""
+    try:
+        # Save the LLM output as a log entry
+        subprocess.run(["memtext", "log", f"LLM Insight: {llm_output[:200]}..."], 
+                      check=False)
+        
+        # If there's significant context, save it as a decision or pattern
+        if len(context) > 50:  # Arbitrary threshold
+            subprocess.run(["memtext", "add", "LLM-Generated Pattern", 
+                          "--content", context[:500], 
+                          "--type", "pattern", 
+                          "--importance", "3"],
+                          check=False)
+    except Exception as e:
+        # Don't let logging failures break the agent
+        pass
+```
+
+#### For Custom MCP Servers
+Add this to your session teardown loop:
+```bash
+# Save session summary
+memtext log "Session completed: $(date) - Processed $TOKEN_COUNT tokens"
+
+# Extract and save key insights
+memtext synthesize --text "$SESSION_INSIGHTS (@tags: llm-generated, insight)"
+```
+
+#### Environment Configuration
+Set up automatic hooking by adding to your agent's initialization:
+```bash
+# Enable PostgreSQL for better search (optional)
+export MEMTEXT_DATABASE_URL="postgresql://user:pass@host:port/dbname"
+
+# Install with PostgreSQL support
+pip install memtext[postgres]
+```
 
 ## Dependencies
 

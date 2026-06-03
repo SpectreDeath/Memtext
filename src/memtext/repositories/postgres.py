@@ -92,6 +92,7 @@ class PostgresEntryManager:
                     tags TEXT[],  -- Array of tags for better querying
                     parent_tag TEXT,
                     source TEXT DEFAULT 'manual',
+                    trust_score REAL DEFAULT 1.0,  -- Trust score for agent vs human input
                     linked_files TEXT[],
                     is_shared BOOLEAN DEFAULT FALSE,
                     project_id UUID REFERENCES projects(id),
@@ -104,8 +105,7 @@ class PostgresEntryManager:
                     tsv_content tsvector GENERATED ALWAYS AS (
                         to_tsvector('english', coalesce(title, '') || ' ' || coalesce(content, ''))
                     ) STORED,
-                    embedding vector(1536),  -- For pgvector similarity search
-                    trust_score REAL DEFAULT 1.0  -- Inspired by Memory OS Layer 3
+                    embedding vector(1536)  -- For pgvector similarity search
                 )
             """)
             
@@ -121,12 +121,12 @@ class PostgresEntryManager:
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_context_entries_tags ON context_entries USING GIN(tags)")
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_context_entries_linked_files ON context_entries USING GIN(linked_files)")
             
-            # Index for similarity search (using cosine distance)
-            await conn.execute("CREATE INDEX IF NOT EXISTS idx_context_entries_embedding ON context_entries USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)")
-            
-            # Trigram index for fuzzy text matching
+            # Trigram indexes for fuzzy text matching
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_context_entries_content_trgm ON context_entries USING GIN (content gin_trgm_ops)")
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_context_entries_title_trgm ON context_entries USING GIN (title gin_trgm_ops)")
+            
+            # Index for similarity search (using cosine distance)
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_context_entries_embedding ON context_entries USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)")
             
             # Time-series table for session logs (enhanced from user's suggestion)
             await conn.execute("""
@@ -187,6 +187,8 @@ class PostgresEntryManager:
         linked_files: List[str] = [],
         importance: int = 1,
         parent_tag: Optional[str] = None,
+        source: str = "manual",
+        trust_score: float = 1.0,
     ) -> int:
         """Create a new entry. Returns the new entry ID."""
         await self._init_db()
@@ -196,8 +198,8 @@ class PostgresEntryManager:
             # Insert the entry
             row = await conn.fetchrow("""
                 INSERT INTO context_entries
-                (title, content, entry_type, tags, importance, linked_files, parent_tag, source, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                (title, content, entry_type, tags, importance, linked_files, parent_tag, source, trust_score, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 RETURNING id
                 """,
                 title,
@@ -207,7 +209,8 @@ class PostgresEntryManager:
                 importance,
                 linked_files,
                 parent_tag,
-                "manual",
+                source,
+                trust_score,
                 datetime.now()
             )
             
@@ -229,96 +232,152 @@ class PostgresEntryManager:
         """Retrieve a single entry by ID."""
         await self._init_db()
         
-        # Convert integer ID back to UUID lookup (this is a simplification)
-        # In a real implementation, we'd need a mapping table or different approach
+        # For simplicity in this implementation, we'll use a mapping approach
+        # In a production system, you'd want a proper integer ID column
         conn = await get_connection()
         try:
-            # This is a simplified approach - in practice, we'd need a better ID mapping
-            # For now, let's just search by content/title hash or limit to recent entries
+            # Since we're using UUIDs internally, we need to map the integer ID
+            # For now, let's just search by a hash or limit to recent entries
             # A better approach would be to store the integer ID in the database
             
-            # Since we're changing the ID scheme, let's modify our approach:
-            # We'll add an integer ID column for backward compatibility
+            # Let's get recent entries and find one that matches our hash
+            # This is not ideal but works for demonstration
+            rows = await conn.fetch("""
+                SELECT id, title, content, entry_type, importance, tags, 
+                       parent_tag, source, trust_score, linked_files, is_shared, project_id,
+                       reminder_at, created_at, updated_at, last_accessed, access_count
+                FROM context_entries
+                ORDER BY created_at DESC
+                LIMIT 1000
+            """)
             
-            # Actually, let's redesign: keep the integer ID as primary key for compatibility
-            # But also add UUID for distributed systems
+            for row in rows:
+                if (hash(str(row['id'])) & 0x7FFFFFFF) == entry_id:
+                    return dict(row)
             
-            # For this implementation, let's simplify and assume we can map
-            # In a real implementation, we'd need to handle this more carefully
-            
-            # Let's check if we have an integer_id column, if not, we need to migrate
-            # For now, let's implement a simple version that works with the existing interface
-            
-            # This is getting complex. Let me step back and think of a better approach.
-            
-            # Actually, let's just implement the core functionality and worry about
-            # backward compatibility later. For now, let's return None to indicate
-            # that this needs more work.
-            
-            logger.warning("Postgres get() method needs implementation for ID mapping")
             return None
             
         finally:
             await conn.close()
 
-    # For brevity, I'll implement a few more methods to show the pattern
-    # but note that a full implementation would need to handle the ID mapping properly
-    
     async def update(self, entry_id: int, **kwargs) -> bool:
         """Update an entry. Returns True if modified."""
-        logger.warning("Postgres update() method needs implementation")
-        return False
+        await self._init_db()
+        
+        conn = await get_connection()
+        try:
+            # Build dynamic update query
+            if not kwargs:
+                return False
+                
+            set_clauses = []
+            values = []
+            param_idx = 1
+            
+            for key, value in kwargs.items():
+                if key in ['title', 'content', 'entry_type', 'importance', 'tags', 
+                          'linked_files', 'parent_tag', 'source', 'trust_score', 
+                          'is_shared', 'project_id', 'reminder_at']:
+                    set_clauses.append(f"{key} = ${param_idx}")
+                    values.append(value)
+                    param_idx += 1
+            
+            if not set_clauses:
+                return False
+                
+            set_clauses.append("updated_at = NOW()")
+            
+            # Find the entry by ID hash
+            rows = await conn.fetch("""
+                SELECT id FROM context_entries 
+                ORDER BY created_at DESC 
+                LIMIT 1000
+            """)
+            
+            target_uuid = None
+            for row in rows:
+                if (hash(str(row['id'])) & 0x7FFFFFFF) == entry_id:
+                    target_uuid = row['id']
+                    break
+            
+            if not target_uuid:
+                return False
+            
+            # Update the entry
+            query = f"""
+                UPDATE context_entries
+                SET {', '.join(set_clauses)}
+                WHERE id = ${param_idx}
+            """
+            values.append(target_uuid)
+            
+            result = await conn.execute(query, *values)
+            return result == "UPDATE 1"
+            
+        except Exception as e:
+            logger.error(f"Failed to update entry: {e}")
+            return False
+        finally:
+            await conn.close()
 
     async def delete(self, entry_id: int) -> bool:
         """Remove an entry."""
-        logger.warning("Postgres delete() method needs implementation")
-        return False
+        await self._init_db()
+        
+        conn = await get_connection()
+        try:
+            # Find the entry by ID hash
+            rows = await conn.fetch("""
+                SELECT id FROM context_entries 
+                ORDER BY created_at DESC 
+                LIMIT 1000
+            """)
+            
+            target_uuid = None
+            for row in rows:
+                if (hash(str(row['id'])) & 0x7FFFFFFF) == entry_id:
+                    target_uuid = row['id']
+                    break
+            
+            if not target_uuid:
+                return False
+            
+            # Delete the entry
+            result = await conn.execute("DELETE FROM context_entries WHERE id = $1", target_uuid)
+            return result == "DELETE 1"
+            
+        except Exception as e:
+            logger.error(f"Failed to delete entry: {e}")
+            return False
+        finally:
+            await conn.close()
 
     async def list(
         self, entry_type: Optional[str] = None, limit: int = 100, parent_tag: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """List entries, optionally filtered."""
-        logger.warning("Postgres list() method needs implementation")
-        return []
-
-    async def exists(self, title: str, entry_type: str) -> bool:
-        """Check if an entry with given title/type exists."""
-        logger.warning("Postgres exists() method needs implementation")
-        return False
-
-    async def search(
-        self, query_text: str, entry_type: Optional[str] = None, limit: int = 20
-    ) -> List[Dict[str, Any]]:
-        """Hybrid search using pgvector + pg_trgm + tsvector."""
         await self._init_db()
         
         conn = await get_connection()
         try:
-            # This is where we implement the advanced hybrid search
-            # Combining lexical search (tsvector/trigram) with semantic search (vector similarity)
-            
-            # For now, let's implement a basic version
-            # In a full implementation, we would:
-            # 1. Convert query_text to a vector embedding
-            # 2. Perform vector similarity search
-            # 3. Perform full-text search using tsvector and trigram
-            # 4. Combine and rank the results
-            
-            # Simple fallback to text search for now
             sql = """
                 SELECT id, title, content, entry_type, importance, tags, 
-                       parent_tag, source, linked_files, is_shared, project_id,
+                       parent_tag, source, trust_score, linked_files, is_shared, project_id,
                        reminder_at, created_at, updated_at, last_accessed, access_count
                 FROM context_entries
-                WHERE (title ILIKE $1 OR content ILIKE $2)
+                WHERE 1=1
             """
-            params = [f"%{query_text}%", f"%{query_text}%"]
+            params = []
             
             if entry_type:
-                sql += " AND entry_type = $3"
+                sql += f" AND entry_type = ${len(params) + 1}"
                 params.append(entry_type)
                 
-            sql += " ORDER BY created_at DESC LIMIT $4"
+            if parent_tag:
+                sql += f" AND parent_tag = ${len(params) + 1}"
+                params.append(parent_tag)
+                
+            sql += f" ORDER BY created_at DESC LIMIT ${len(params) + 1}"
             params.append(limit)
             
             rows = await conn.fetch(sql, *params)
@@ -327,8 +386,63 @@ class PostgresEntryManager:
         finally:
             await conn.close()
 
-    # Additional methods for the advanced features mentioned in the user's request
-    
+    async def exists(self, title: str, entry_type: str) -> bool:
+        """Check if an entry with given title/type exists."""
+        await self._init_db()
+        
+        conn = await get_connection()
+        try:
+            row = await conn.fetchrow("""
+                SELECT id FROM context_entries 
+                WHERE title = $1 AND entry_type = $2
+                LIMIT 1
+            """, title, entry_type)
+            
+            return row is not None
+            
+        finally:
+            await conn.close()
+
+    async def search(
+        self, query_text: str, entry_type: Optional[str] = None, limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """Search using trigram and full-text search."""
+        await self._init_db()
+        
+        conn = await get_connection()
+        try:
+            # Use trigram similarity for fuzzy matching
+            sql = """
+                SELECT id, title, content, entry_type, importance, tags, 
+                       parent_tag, source, trust_score, linked_files, is_shared, project_id,
+                       reminder_at, created_at, updated_at, last_accessed, access_count,
+                       -- Calculate similarity scores
+                       GREATEST(
+                           similarity(title, $1),
+                           similarity(content, $1),
+                           ts_rank_cd(tsv_content, plainto_tsquery('english', $1))
+                       ) AS rank
+                FROM context_entries
+                WHERE 
+                    title % $1 OR 
+                    content % $1 OR
+                    tsv_content @@ plainto_tsquery('english', $1)
+            """
+            params = [query_text]
+            
+            if entry_type:
+                sql += f" AND entry_type = ${len(params) + 1}"
+                params.append(entry_type)
+                
+            sql += f" ORDER BY rank DESC LIMIT ${len(params) + 1}"
+            params.append(limit)
+            
+            rows = await conn.fetch(sql, *params)
+            return [dict(row) for row in rows]
+            
+        finally:
+            await conn.close()
+
     async def hybrid_search(
         self, 
         query_text: str, 
@@ -405,6 +519,7 @@ class PostgresEntryManager:
                         COALESCE(t.tags, v.tags) AS tags,
                         COALESCE(t.parent_tag, v.parent_tag) AS parent_tag,
                         COALESCE(t.source, v.source) AS source,
+                        COALESCE(t.trust_score, v.trust_score) AS trust_score,
                         COALESCE(t.linked_files, v.linked_files) AS linked_files,
                         COALESCE(t.is_shared, v.is_shared) AS is_shared,
                         COALESCE(t.project_id, v.project_id) AS project_id,
@@ -422,7 +537,7 @@ class PostgresEntryManager:
                 )
                 SELECT 
                     id, title, content, entry_type, importance, tags,
-                    parent_tag, source, linked_files, is_shared, project_id,
+                    parent_tag, source, trust_score, linked_files, is_shared, project_id,
                     reminder_at, created_at, updated_at, last_accessed, access_count
                 FROM combined
                 WHERE combined_score > 0.1  -- Minimum relevance threshold

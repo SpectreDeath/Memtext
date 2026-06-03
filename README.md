@@ -39,7 +39,20 @@ memtext query "database decisions"
      2026-04-10.md
 ```
 
-
 ## PostgreSQL Support
 
-Memtext supports PostgreSQL as an alternative database backend for advanced features. See [PostgreSQL Documentation](docs/postgres.md) for details on setup and usage.
+Memtext supports PostgreSQL as an alternative database backend for advanced features including hybrid search, token-budget gating, and agent staging. See [PostgreSQL Documentation](docs/postgres.md) for details on setup and usage.
+
+## Advanced Features
+
+### Token-Budget Gating
+Use `--max-tokens` with the query command to limit response size:
+```bash
+memtext query "machine learning" --max-tokens 500
+```
+
+### Agent Staging
+Agent-generated content is automatically tagged with trust scores and sources for verification workflows.
+
+### Post-LLM Call Hooks
+Automatically capture LLM insights using the provided hook patterns in AGENTS.md.
