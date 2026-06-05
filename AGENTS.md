@@ -25,7 +25,7 @@ Do NOT use this skill when:
 
 ```yaml
 context_request:
-  action: string        # "init", "save", "query", "log", "add", "list", "migrate", "synthesize"
+  action: string        # "init", "save", "query", "log", "add", "list", "migrate", "synthesize", "review"
   text: string          # Context text to save/query
   tags: array           # Optional tags for organization
   type: string          # Entry type: decision, pattern, note, error, convention, memory
@@ -34,6 +34,8 @@ context_request:
   session: string       # Session identifier for logs
   scan: bool            # Scan for projects
   all: bool             # Process all logs (not just recent)
+  trust_score: float    # Trust score for entry (0.0-1.0, default: 1.0)
+  source: string        # Entry source: manual, agent, etc. (default: manual)
 ```
 
 ## Output Format
@@ -45,6 +47,8 @@ context_result:
   entry_id: int         # For add operations
   results: array        # For query operations
   new_memories: int     # For synthesize operations
+  trust_score: float    # Trust score for entry (0.0-1.0)
+  source: string        # Entry source: manual, agent, etc.
 ```
 
 ## Capabilities
@@ -126,7 +130,34 @@ memtext projects --scan
 
 Cross-project tracking at `~/.config/memtext/projects.db`.
 
-### 8. Migration
+### 8. Agent Staging and Review
+
+When AI agents generate context that needs human verification, they can mark it for review using the trust score and source fields:
+
+```bash
+# Agent adds content that needs review (low trust score)
+memtext add "Agent-generated hypothesis" --content "This needs verification" --importance 3 --trust-score 0.5
+
+# Or mark by source
+memtext add "Agent-generated hypothesis" --content "This needs verification" --importance 3 --source "agent"
+```
+
+To review and verify agent-generated content:
+
+```bash
+# List content pending review
+memtext review --limit 20
+
+# Approve an entry (marks as trusted and human-reviewed)
+memtext review --approve 123
+
+# Reject and remove an entry
+memtext review --reject 123
+```
+
+Entries with trust scores below 1.0 or sources other than 'manual' will appear in the review queue.
+
+### 9. Migration
 
 ```bash
 memtext migrate
@@ -265,20 +296,21 @@ X-Api-Key: your-api-key
 
 **Entry Response**
 
-```json
-{
-  "id": 42,
-  "title": "API Decision",
-  "content": "Use REST not GraphQL for now",
-  "entry_type": "decision",
-  "tags": "api,rest",
-  "importance": 3,
-  "source": "manual",
-  "created_at": "2026-04-15T13:00:00",
-  "last_accessed": null,
-  "access_count": 0
-}
-```
+        ```json
+        {
+          "id": 42,
+          "title": "API Decision",
+          "content": "Use REST not GraphQL for now",
+          "entry_type": "decision",
+          "tags": "api,rest",
+          "importance": 3,
+          "source": "manual",
+          "trust_score": 1.0,
+          "created_at": "2026-04-15T13:00:00",
+          "last_accessed": null,
+          "access_count": 0
+        }
+        ```
 
 **Update Entry (`PUT /entries/{id}`)** — all fields optional:
 

@@ -105,7 +105,7 @@ def init_db():
     return get_db_path()
 
 
-def add_entry(title, content="", entry_type="note", tags=None, parent_tag=None, importance=1):
+def add_entry(title, content="", entry_type="note", tags=None, parent_tag=None, importance=1, trust_score=1.0, source="manual"):
     """Create a new entry. Backward compatible signature."""
     import asyncio
     
@@ -119,17 +119,17 @@ def add_entry(title, content="", entry_type="note", tags=None, parent_tag=None, 
         if asyncio.iscoroutinefunction(entry_manager.add):
             # Run the async method
             return asyncio.run(entry_manager.add(
-                title, content, entry_type, tags or [], [], importance, parent_tag
+                title, content, entry_type, tags or [], [], importance, parent_tag, source, trust_score
             ))
         else:
             # Synchronous method (SQLite)
             return entry_manager.add(
-                title, content, entry_type, tags or [], [], importance, parent_tag
+                title, content, entry_type, tags or [], [], importance, parent_tag, source, trust_score
             )
     else:
         # Fallback to SQLite
         em = SQLiteEntryManager()
-        return em.add(title, content, entry_type, tags or [], [], importance, parent_tag)
+        return em.add(title, content, entry_type, tags or [], [], importance, parent_tag, source, trust_score)
 
 
 def get_entry(entry_id):
@@ -202,14 +202,14 @@ def list_entries(entry_type=None, limit=100, parent_tag=None):
         # Check if it's an async method (PostgreSQL)
         if asyncio.iscoroutinefunction(entry_manager.list):
             # Run the async method
-            return asyncio.run(entry_manager.list(entry_type, limit, parent_tag))
+            return asyncio.run(entry_manager.list(entry_type=entry_type, limit=limit, parent_tag=parent_tag))
         else:
             # Synchronous method (SQLite)
-            return entry_manager.list(entry_type, limit, parent_tag)
+            return entry_manager.list(entry_type=entry_type, limit=limit, parent_tag=parent_tag)
     else:
         # Fallback to SQLite
         em = SQLiteEntryManager()
-        return em.list(entry_type, limit, parent_tag)
+        return em.list(entry_type=entry_type, limit=limit, parent_tag=parent_tag)
 
 
 def query_entries(
@@ -231,18 +231,18 @@ def query_entries(
         if asyncio.iscoroutinefunction(entry_manager.search):
             # Run the async method
             return asyncio.run(entry_manager.search(
-                search_text or "", entry_type, limit
+                search_text or "", entry_type=entry_type, limit=limit
             ))
         else:
             # Synchronous method (SQLite)
             return entry_manager.search(
-                search_text or "", entry_type, limit
+                search_text or "", entry_type=entry_type, limit=limit
             )
     else:
         # Fallback to SQLite
         em = SQLiteEntryManager()
         return em.search(
-            search_text or "", entry_type, limit
+            search_text or "", entry_type=entry_type, limit=limit
         )
 
 

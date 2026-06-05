@@ -172,6 +172,8 @@ def main(argv=None):
     add_parser.add_argument("--parent-tag", help="Parent tag for hierarchy")
     add_parser.add_argument("--template", help="Use a predefined template")
     add_parser.add_argument("--importance", type=int, default=1, help="Importance 1-5")
+    add_parser.add_argument("--trust-score", type=float, default=1.0, help="Trust score (0.0-1.0)")
+    add_parser.add_argument("--source", default="manual", help="Entry source (manual, agent, etc.)")
 
     list_parser = subparsers.add_parser("list", help="List entries from SQLite")
     list_parser.add_argument("--type", help="Filter by type")
@@ -191,6 +193,13 @@ def main(argv=None):
     subparsers.add_parser("migrate", help="Migrate v0.1.x to v0.2.0")
 
     subparsers.add_parser("db-status", help="Show current database backend and connection info")
+
+    # Agent staging commands
+    review_parser = subparsers.add_parser("review", help="Review agent-generated content pending verification")
+    review_parser.add_argument("--limit", type=int, default=10, help="Max results to show")
+    review_parser.add_argument("--approve", type=int, help="Approve entry by ID")
+    review_parser.add_argument("--reject", type=int, help="Reject entry by ID")
+
 
     synth_parser = subparsers.add_parser(
         "synthesize",
@@ -592,6 +601,8 @@ def main(argv=None):
                     args.tags,
                     args.parent_tag,
                     importance=args.importance,
+                    trust_score=args.trust_score,
+                    source=args.source,
                 )
                 if entry_id > 0:
                     print(f' Saved entry {entry_id} ')
@@ -699,6 +710,62 @@ def main(argv=None):
                     print("Database status: Initialized")
                 else:
                     print("Database status: Not initialized (run 'memtext init')")
+        elif args.command == "review":
+            require_context_dir()
+            from memtext.db import query_entries
+            
+            # Get entries that might need review (low trust score or agent source)
+            # For now, we'll show entries with trust_score < 1.0 or source != 'manual'
+            all_entries = query_entries(limit=100)
+            
+            # Filter for entries that need review
+            review_entries = []
+            for entry in all_entries:
+                trust_score = entry.get('trust_score', 1.0)
+                source = entry.get('source', 'manual')
+                
+                # Consider it needs review if trust score is low or source is not manual
+                if trust_score < 1.0 or source != 'manual':
+                    review_entries.append(entry)
+            
+            # Limit results
+            if args.limit:
+                review_entries = review_entries[:args.limit]
+            
+            # Handle approve/reject actions
+            if args.approve is not None:
+                from memtext.db import update_entry
+                success = update_entry(args.approve, trust_score=1.0, source='manual')
+                if success:
+                    print(f"Entry {args.approve} approved and marked as verified.")
+                else:
+                    print(f"Failed to approve entry {args.approve}. Entry not found.")
+                return
+            
+            if args.reject is not None:
+                from memtext.db import delete_entry
+                success = delete_entry(args.reject)
+                if success:
+                    print(f"Entry {args.reject} rejected and removed.")
+                else:
+                    print(f"Failed to reject entry {args.reject}. Entry not found.")
+                return
+            
+            # Display review entries
+            if not review_entries:
+                print("No content pending review.")
+            else:
+                print(f"Found {len(review_entries)} entries pending review:")
+                print()
+                for r in review_entries:
+                    trust_score = r.get('trust_score', 1.0)
+                    source = r.get('source', 'manual')
+                    print(f"[{r.get('entry_type', 'note').upper()}] {r.get('title', 'Untitled')} (ID: {r.get('id')}")
+                    print(f"  {r.get('content', '')[:200]}{'...' if len(r.get('content', '')) > 200 else ''}")
+                    print(f"  Importance: {r.get('importance', 1)} | Tags: {', '.join(_parse_tags(r.get('tags')))}")
+                    print(f"  Source: {source} | Trust Score: {trust_score:.2f}")
+                    print()
+
         elif args.command == "synthesize":
             count = synthesize_memories(source_text=args.text, recent_only=not args.all)
             print(f"Synthesized {count} new memories from logs")
@@ -886,7 +953,7 @@ def main(argv=None):
                 if not reminders:
                     print("No reminders found.")
                 for r in reminders:
-                    status = "✓" if r["completed"] else "○"
+                    status = "ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ" if r["completed"] else "ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹"
                     print(
                         f"{status} #{r['id']} Entry {r['entry_id']} at {r['remind_at']}: {r.get('message', '')}"
                     )
@@ -1090,7 +1157,7 @@ def main(argv=None):
                         print("No history available.")
                     for h in history:
                         print(
-                            f"[{h['changed_at']}] {h['field_name']}: {h['old_value']} → {h['new_value']}"
+                            f"[{h.get('changed_at', h.get('created_at', 'unknown'))}] {h.get('field_name', 'entry')}: {h.get('old_value', '')} -> {h.get('new_value', h.get('content', ''))}"
                         )
             except Exception as e:
                 raise DatabaseError(f"Failed to get history: {e}")
@@ -1261,10 +1328,14 @@ def main(argv=None):
                 if not backups:
                     print("No backups found.")
                 for b in backups:
-                    print(f"#{b['id']} [{b['backup_type']}] {b['backup_path']}")
-                    print(
-                        f"  Size: {b['size_bytes']} bytes, Entries: {b['entry_count']}, Created: {b['created_at']}"
-                    )
+                    print(f"#{b.get('id', 'N/A')} [{b.get('backup_type', 'unknown')}] {b.get('backup_path', 'N/A')}")
+                    size = b.get('size_bytes', 'N/A')
+                    entries = b.get('entry_count', 'N/A')
+                    created = b.get('created_at', 'N/A')
+                    if size != 'N/A':
+                        print(f"  Size: {size} bytes, Entries: {entries}, Created: {created}")
+                    else:
+                        print(f"  Created: {created}")
             except Exception as e:
                 raise DatabaseError(f"Failed to list backups: {e}")
 

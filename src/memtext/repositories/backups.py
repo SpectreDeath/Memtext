@@ -20,6 +20,20 @@ class BackupService:
         self.db_path = db_path or get_db_path()
         self.backups_dir = self.db_path.parent / "backups"
         self.backups_dir.mkdir(exist_ok=True)
+        self._ensure_backups_table()
+
+    def _ensure_backups_table(self) -> None:
+        """Create the _backups table if it doesn't exist."""
+        with get_connection(self.db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS _backups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    backup_path TEXT NOT NULL,
+                    backup_type TEXT,
+                    created_at TEXT NOT NULL
+                )
+            """)
+            conn.commit()
 
     def create(self, backup_type: str = "manual") -> Optional[int]:
         """Create a timestamped backup. Returns backup ID or None on failure."""

@@ -442,6 +442,26 @@ def deprecate_entry(entry_type: str, name: str, superseded_by: str = None) -> bo
     if not ctx_dir.exists():
         return False
 
+    # First try database entries
+    try:
+        from memtext.db import get_entry_manager
+        em = get_entry_manager()
+        if entry_type == "entry":
+            # Try to find by ID first
+            if name.isdigit():
+                entry_id = int(name)
+                entry = em.get(entry_id) if hasattr(em, 'get') else None
+            else:
+                # Search by title
+                results = em.search(name, limit=1) if hasattr(em, 'search') else []
+                entry = results[0] if results else None
+            
+            if entry:
+                return em.update(entry['id'], trust_score=0.0) if hasattr(em, 'update') else False
+    except Exception:
+        pass
+
+    # Fallback to markdown files
     target_file = None
     if (ctx_dir / f"{name}.md").exists():
         target_file = ctx_dir / f"{name}.md"
