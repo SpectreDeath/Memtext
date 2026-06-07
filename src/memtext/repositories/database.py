@@ -74,6 +74,17 @@ def init_db(db_path: Path) -> None:
                 VALUES (new.id, new.title, new.content, new.entry_type, new.tags);
             END
         """)
+        # Reflection insights table for offline consolidation (Dreams feature)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS reflection_insights (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                source TEXT DEFAULT 'memtext-reflection-engine',
+                trust_score REAL DEFAULT 0.85,
+                metadata TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         conn.commit()
         logger.info("Database initialized at %s", db_path)
 

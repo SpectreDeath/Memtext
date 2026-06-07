@@ -1,0 +1,11 @@
+[Unit]
+Description=Memtext Background Reflection Engine
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/.context/
+ExecStart=/usr/local/bin/memtext reflect --limit 20
+
+[Install]
+WantedBy=multi-user.target

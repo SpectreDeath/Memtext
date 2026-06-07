@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -17,9 +18,7 @@ from memtext.core import (
     view_skill,
 )
 
-logger = logging.getLogger("memtext")
-
-logger = logging.getLogger("memtext")
+logger = logging.getLogger(__name__)
 
 
 class MemTextError(Exception):
@@ -271,6 +270,15 @@ def main(argv=None):
         help="Remove deprecated entries from active indexes",
         description="Clean up skills.md and other indexes by removing deprecated items",
     )
+
+    reflect_parser = subparsers.add_parser(
+        "reflect",
+        help="Run asynchronous memory reflection",
+        description="Consolidate session logs into high-level insights (offline 'dream' cycle)",
+    )
+    reflect_parser.add_argument("--limit", type=int, default=20, help="Number of recent logs to analyze")
+    reflect_parser.add_argument("--project", help="Target specific repository workspace")
+    reflect_parser.add_argument("--max-tokens", type=int, default=4000, help="Token budget threshold for pruning")
 
     offload_parser = subparsers.add_parser(
         "offload",
@@ -670,7 +678,6 @@ def main(argv=None):
 
         elif args.command == "db-status":
             from memtext.db import is_postgres_enabled, get_entry_manager, get_db_path
-            import os
             
             if is_postgres_enabled():
                 print("Database backend: PostgreSQL")
@@ -875,6 +882,24 @@ def main(argv=None):
         elif args.command == "prune":
             prune_deprecated()
             print("Pruned deprecated entries from indexes")
+
+        elif args.command == "reflect":
+            try:
+                from memtext.reflection import run_reflection_cycle
+
+                project = args.project or os.getcwd()
+                result = run_reflection_cycle(
+                    project_path=project,
+                    max_logs=args.limit,
+                    max_tokens=args.max_tokens,
+                )
+                print(result["message"])
+                if result.get("pruning_status"):
+                    print(f"Pruning: {result['pruning_status']}")
+                if result["status"] == "error":
+                    logger.warning(result["message"])
+            except Exception as e:
+                raise DatabaseError(f"Reflection failed: {e}")
 
         elif args.command == "export":
             try:

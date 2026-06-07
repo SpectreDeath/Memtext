@@ -146,7 +146,7 @@ class PostgresEntryManager:
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_session_logs_project ON session_logs(project_id)")
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_session_logs_created ON session_logs(created_at)")
             
-            # Version history table (keeping existing structure for compatibility)
+# Version history table (keeping existing structure for compatibility)
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS version_history (
                     id SERIAL PRIMARY KEY,
@@ -159,6 +159,21 @@ class PostgresEntryManager:
             """)
             
             await conn.execute("CREATE INDEX IF NOT EXISTS idx_version_history_entry ON version_history(entry_id)")
+            
+            # Reflection insights table for offline consolidation (Dreams feature)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS reflection_insights (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    content TEXT NOT NULL,
+                    source VARCHAR(100) DEFAULT 'memtext-reflection-engine',
+                    trust_score REAL DEFAULT 0.85,
+                    metadata JSONB,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+            """)
+            
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_reflection_insights_source ON reflection_insights(source)")
+            await conn.execute("CREATE INDEX IF NOT EXISTS idx_reflection_insights_trust ON reflection_insights(trust_score)")
             
             # Projects table for tracking registered projects (existing functionality)
             await conn.execute("""
