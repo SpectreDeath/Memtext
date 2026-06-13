@@ -63,6 +63,7 @@ Creates:
 - `.context/` directory
 - `identity.md` - Project purpose, stack, conventions
 - `decisions.md` - Architecture decisions
+- `artifacts/` - Scratchpad snapshots and immutable memory artifacts
 - `session-logs/` - Daily session notes
 - `memtext.db` - SQLite with FTS5 for full-text search
 - Auto-updates `.gitignore`
@@ -157,6 +158,30 @@ memtext review --reject 123
 
 Entries with trust scores below 1.0 or sources other than 'manual' will appear in the review queue.
 
+### Staging Memory and Artifacts
+
+Use the scratchpad tier for non-destructive drafting when an agent needs to work through architecture changes, long-form reasoning, or multi-step plans before committing anything to core context files. The scratchpad is a temporary buffer for `scratchpad.tmp`; it lets agents iterate without introducing context drift into `identity.md`, `decisions.md`, or active session logs.
+
+Manual scratchpad commands:
+
+```bash
+memtext scratchpad write "Draft the migration plan first"
+memtext scratchpad read
+memtext scratchpad artifact "Migration Plan Draft"
+```
+
+`memtext scratchpad artifact <name>` saves the current scratchpad content directly as an immutable memory artifact under `.context/artifacts/` and clears the temporary scratchpad by default. Filename collisions are resolved with a monotonic suffix counter such as `_1`, `_2` when multiple artifacts are created in the same second.
+
+Automated artifact compilation is available through `post_llm_artifact_hook()`. When an agent wraps text in an `<artifact>` XML directive in its response stream, the hook captures the directive content, removes that block from the user-facing response to avoid double-logging, and saves it as a timestamped snapshot under `.context/artifacts/`.
+
+```xml
+<artifact name="Gephi Network Data Graph Rules" scope="visualization">
+- Extract edge tables strictly from memory-engine data outputs.
+- Filter out isolated components with node degree less than 1.
+- Target layout preset: ForceAtlas2 for modular cluster mapping.
+</artifact>
+```
+
 ### 9. Migration
 
 ```bash
@@ -187,6 +212,7 @@ Migrates v0.1.x filesystem context to SQLite database.
 
 - **Before answering**: Query context for relevant prior decisions
 - **After making decision**: `memtext save` to record
+- **After drafting or reasoning**: use `memtext scratchpad write/read/artifact` to stage and compile artifacts
 - **Session end**: `memtext log` to summarize
 - **After LLM calls**: Use `memtext log` or `memtext add` to capture insights (see post_llm_call hook below)
 - **Periodic**: `memtext synthesize` to extract memories

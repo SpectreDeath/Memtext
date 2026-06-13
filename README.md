@@ -4,8 +4,16 @@ Persistent memory across sessions for coding agents.
 
 ## Installation
 
+Install Memtext with pip:
+
 ```bash
 pip install memtext
+```
+
+Update an existing installation with:
+
+```bash
+pip install --upgrade memtext
 ```
 
 ## Quick Start
@@ -29,18 +37,18 @@ memtext query "database decisions"
 - `memtext log <text>` - Add session log entry
 - `memtext add <text>` - Add context entry to SQLite
 - `memtext scratchpad write <text>` - Write temporary agent scratchpad content
-- `memtext scratchpad read` - Read current scratchpad content
-- `memtext scratchpad artifact <name>` - Save scratchpad as a memory artifact
+- `memtext scratchpad read` - Read the current scratchpad content
+- `memtext scratchpad artifact <name>` - Save scratchpad content directly as an immutable memory artifact
 
 ## File Structure
 
 ```
 .context/
-   .gitignore
-   identity.md     # Project purpose, stack, conventions
-   decisions.md    # Architecture decisions
-   artifacts/      # Scratchpad snapshots and memory artifacts
-   session-logs/   # Episodic notes
+   .gitignore          # Ignore local context files if root ignore is missing
+   identity.md         # Project purpose, stack, conventions
+   decisions.md        # Architecture decisions
+   artifacts/          # Scratchpad snapshots and immutable memory artifacts
+   session-logs/       # Episodic notes
      2026-04-10.md
 ```
 

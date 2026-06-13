@@ -195,7 +195,7 @@ def main(argv=None):
     scratchpad_subparsers = scratchpad_parser.add_subparsers(dest="scratchpad_command")
 
     scratchpad_write_parser = scratchpad_subparsers.add_parser(
-        "write", help="Write scratchpad content"
+        "write", help="Write temporary agent scratchpad content"
     )
     scratchpad_write_parser.add_argument("text", help="Scratchpad text")
     scratchpad_write_parser.add_argument(
@@ -207,7 +207,7 @@ def main(argv=None):
 
     scratchpad_artifact_parser = scratchpad_subparsers.add_parser(
         "artifact",
-        help="Save scratchpad as a memory artifact",
+        help="Save scratchpad content directly as an immutable memory artifact",
     )
     scratchpad_artifact_parser.add_argument("name", help="Artifact name")
     scratchpad_artifact_parser.add_argument(
@@ -219,7 +219,7 @@ def main(argv=None):
 
     scratchpad_hook_parser = scratchpad_subparsers.add_parser(
         "hook",
-        help="Process LLM output for artifact directives",
+        help="Process LLM output for artifact directives without touching scratchpad",
     )
     scratchpad_hook_parser.add_argument("text", help="LLM output to process")
     scratchpad_hook_parser.add_argument(
