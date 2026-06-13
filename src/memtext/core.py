@@ -14,6 +14,7 @@ def init_context():
     ctx_dir.mkdir(exist_ok=True)
 
     (ctx_dir / "session-logs").mkdir(exist_ok=True)
+    (ctx_dir / "artifacts").mkdir(exist_ok=True)
 
     skills_dir = ctx_dir / "skills"
     skills_dir.mkdir(exist_ok=True)
@@ -59,9 +60,12 @@ Brief description of the project.
 """
         )
 
-    (ctx_dir / ".gitignore").write_text("""# Memtext context
-.context/
-""")
+    (ctx_dir / ".gitignore").write_text(
+        """# Memtext context
+*
+!.gitignore
+"""
+    )
 
     root_gitignore = Path.cwd() / ".gitignore"
     if root_gitignore.exists():
@@ -73,7 +77,9 @@ Brief description of the project.
         print("Tip: Create a .gitignore with '.context/' to exclude from Git")
 
     print(f"Initialized .context/ at {ctx_dir}")
-    print("Files created: identity.md, decisions.md, skills.md, skills/, session-logs/, .gitignore")
+    print(
+        "Files created: identity.md, decisions.md, skills.md, skills/, session-logs/, artifacts/, .gitignore"
+    )
 
 
 def save_context(text: str, tags: list = None):
@@ -455,7 +461,6 @@ def deprecate_entry(entry_type: str, name: str, superseded_by: str = None) -> bo
                 # Search by title
                 results = em.search(name, limit=1) if hasattr(em, 'search') else []
                 entry = results[0] if results else None
-            
             if entry:
                 return em.update(entry['id'], trust_score=0.0) if hasattr(em, 'update') else False
     except Exception:

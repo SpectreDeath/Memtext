@@ -1,10 +1,17 @@
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from memtext.artifacts import (
+    post_llm_artifact_hook,
+    read_scratchpad,
+    save_scratchpad_artifact,
+    write_scratchpad,
+)
 from memtext.core import (
     add_log,
     add_skill,
@@ -33,6 +40,62 @@ def test_init_context(clean_ctx):
     assert (clean_ctx / "identity.md").exists()
     assert (clean_ctx / "decisions.md").exists()
     assert (clean_ctx / "session-logs").is_dir()
+    assert (clean_ctx / "artifacts").is_dir()
+    assert (clean_ctx / ".gitignore").read_text() == "# Memtext context\n*\n!.gitignore\n"
+
+
+def test_scratchpad_artifact_workflow(clean_ctx):
+    assert write_scratchpad("Draft decision", append=False) == "Scratchpad updated."
+    assert read_scratchpad() == "Draft decision"
+
+    result = save_scratchpad_artifact("Architecture Draft", scope="design")
+    assert result.startswith("Saved scratchpad state as memory artifact:")
+
+    artifacts = list((clean_ctx / "artifacts").glob("artifact_*_architecture_draft.md"))
+    assert len(artifacts) == 1
+    content = artifacts[0].read_text()
+    assert "type: memory_artifact" in content
+    assert "scope: design" in content
+    assert "Draft decision" in content
+    assert read_scratchpad() == "Scratchpad is empty."
+
+
+def test_post_llm_artifact_hook(clean_ctx):
+    write_scratchpad("Existing draft", append=False)
+    response = post_llm_artifact_hook(
+        'Before <artifact name="Gephi Rules" scope="visualization">Use ForceAtlas2</artifact> After'
+    )
+
+    assert "[System Hook: Saved inline directive as memory artifact:" in response
+    assert "Use ForceAtlas2" not in response
+    assert read_scratchpad() == "Existing draft"
+    assert (clean_ctx / "artifacts").exists()
+
+
+def test_post_llm_artifact_hook_single_quoted(clean_ctx):
+    response = post_llm_artifact_hook(
+        "<artifact name='Single Quoted' scope='cli'>Single quoted content</artifact>"
+    )
+
+    assert "Single quoted content" not in response
+    assert "[System Hook: Saved inline directive as memory artifact:" in response
+
+
+def test_artifact_filename_collision_loop(clean_ctx, monkeypatch):
+    class FrozenDatetime:
+        @classmethod
+        def now(cls):
+            return datetime(2026, 6, 13, 12, 0, 0)
+
+    monkeypatch.setattr("memtext.artifacts.datetime", FrozenDatetime)
+    artifacts_dir = clean_ctx / "artifacts"
+    (artifacts_dir / "artifact_20260613_120000_duplicate.md").write_text("existing")
+
+    write_scratchpad("replacement", append=False)
+    result = save_scratchpad_artifact("Duplicate")
+
+    assert "artifact_20260613_120000_duplicate_1.md" in result
+    assert (artifacts_dir / "artifact_20260613_120000_duplicate.md").read_text() == "existing"
 
 
 def test_save_context(clean_ctx):

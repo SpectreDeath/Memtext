@@ -175,6 +175,7 @@ Migrates v0.1.x filesystem context to SQLite database.
 | error | Errors and workarounds |
 | convention | Project conventions |
 | memory | Synthesized high-value memories |
+| memory_artifact | Structured scratchpad or agent-process artifacts |
 
 ## Configuration
 

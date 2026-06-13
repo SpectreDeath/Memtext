@@ -6,7 +6,13 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from memtext.db import init_db
-from memtext.skills import context_manager, context_pruner, context_retriever, project_manager
+from memtext.skills import (
+    context_manager,
+    context_pruner,
+    context_retriever,
+    project_manager,
+    scratchpad_skill,
+)
 
 
 @pytest.fixture
@@ -54,3 +60,16 @@ def test_context_pruner(clean_env):
     result = context_pruner(query)
     assert result["status"] == "success"
     assert "stale_entries" in result
+
+
+def test_scratchpad_skill(clean_env):
+    write_result = scratchpad_skill({"action": "write", "text": "Draft"})
+    assert write_result["status"] == "success"
+
+    read_result = scratchpad_skill({"action": "read"})
+    assert read_result["content"] == "Draft"
+
+    artifact_result = scratchpad_skill(
+        {"action": "save_artifact", "name": "Skill Draft", "scope": "test"}
+    )
+    assert artifact_result["status"] == "success"

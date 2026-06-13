@@ -1,5 +1,12 @@
 """Memtext package - public API."""
 
+from .artifacts import (
+    clear_scratchpad,
+    post_llm_artifact_hook,
+    read_scratchpad,
+    save_scratchpad_artifact,
+    write_scratchpad,
+)
 from .core import (
     add_log,
     init_context,
@@ -68,6 +75,12 @@ __all__ = [
     "get_pending_reminders",
     "get_all_reminders",
     "complete_reminder",
+    # Scratchpad
+    "write_scratchpad",
+    "read_scratchpad",
+    "clear_scratchpad",
+    "save_scratchpad_artifact",
+    "post_llm_artifact_hook",
     "add_webhook",
     "list_webhooks",
     "remove_webhook",

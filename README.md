@@ -27,6 +27,10 @@ memtext query "database decisions"
 - `memtext save <text>` - Save context with optional tags
 - `memtext query <text>` - Search context files
 - `memtext log <text>` - Add session log entry
+- `memtext add <text>` - Add context entry to SQLite
+- `memtext scratchpad write <text>` - Write temporary agent scratchpad content
+- `memtext scratchpad read` - Read current scratchpad content
+- `memtext scratchpad artifact <name>` - Save scratchpad as a memory artifact
 
 ## File Structure
 
@@ -35,6 +39,7 @@ memtext query "database decisions"
    .gitignore
    identity.md     # Project purpose, stack, conventions
    decisions.md    # Architecture decisions
+   artifacts/      # Scratchpad snapshots and memory artifacts
    session-logs/   # Episodic notes
      2026-04-10.md
 ```

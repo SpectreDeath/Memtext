@@ -4,6 +4,13 @@ import os
 import sys
 from pathlib import Path
 
+from memtext.artifacts import (
+    clear_scratchpad,
+    post_llm_artifact_hook,
+    read_scratchpad,
+    save_scratchpad_artifact,
+    write_scratchpad,
+)
 from memtext.core import (
     add_log,
     add_skill,
@@ -12,7 +19,6 @@ from memtext.core import (
     distill_logs,
     init_context,
     prune_deprecated,
-    query_context,
     save_context,
     synthesize_memories,
     view_skill,
@@ -102,7 +108,15 @@ def validate_importance(value: int) -> int:
 
 def validate_entry_type(value: str) -> str:
     """Validate entry type."""
-    valid_types = ["decision", "pattern", "note", "error", "convention", "memory"]
+    valid_types = [
+        "decision",
+        "pattern",
+        "note",
+        "error",
+        "convention",
+        "memory",
+        "memory_artifact",
+    ]
     if value not in valid_types:
         raise ValidationError(f"Invalid type. Must be one of: {', '.join(valid_types)}")
     return value
@@ -173,6 +187,44 @@ def main(argv=None):
     add_parser.add_argument("--importance", type=int, default=1, help="Importance 1-5")
     add_parser.add_argument("--trust-score", type=float, default=1.0, help="Trust score (0.0-1.0)")
     add_parser.add_argument("--source", default="manual", help="Entry source (manual, agent, etc.)")
+
+    scratchpad_parser = subparsers.add_parser(
+        "scratchpad",
+        help="Manage temporary agent scratchpad and memory artifacts",
+    )
+    scratchpad_subparsers = scratchpad_parser.add_subparsers(dest="scratchpad_command")
+
+    scratchpad_write_parser = scratchpad_subparsers.add_parser(
+        "write", help="Write scratchpad content"
+    )
+    scratchpad_write_parser.add_argument("text", help="Scratchpad text")
+    scratchpad_write_parser.add_argument(
+        "--append", action="store_true", help="Append to existing scratchpad"
+    )
+
+    scratchpad_subparsers.add_parser("read", help="Read current scratchpad content")
+    scratchpad_subparsers.add_parser("clear", help="Clear current scratchpad")
+
+    scratchpad_artifact_parser = scratchpad_subparsers.add_parser(
+        "artifact",
+        help="Save scratchpad as a memory artifact",
+    )
+    scratchpad_artifact_parser.add_argument("name", help="Artifact name")
+    scratchpad_artifact_parser.add_argument(
+        "--scope", default="general", help="Artifact scope"
+    )
+    scratchpad_artifact_parser.add_argument(
+        "--keep", action="store_true", help="Keep scratchpad after saving"
+    )
+
+    scratchpad_hook_parser = scratchpad_subparsers.add_parser(
+        "hook",
+        help="Process LLM output for artifact directives",
+    )
+    scratchpad_hook_parser.add_argument("text", help="LLM output to process")
+    scratchpad_hook_parser.add_argument(
+        "--keep", action="store_true", help="Keep scratchpad after saving"
+    )
 
     list_parser = subparsers.add_parser("list", help="List entries from SQLite")
     list_parser.add_argument("--type", help="Filter by type")
@@ -620,6 +672,29 @@ def main(argv=None):
             except Exception as e:
                 raise DatabaseError(f' Failed to add entry: {e} ')
 
+
+        elif args.command == "scratchpad":
+            if not args.scratchpad_command:
+                scratchpad_parser.print_help()
+                return 0
+
+            if args.scratchpad_command == "write":
+                require_context_dir()
+                print(write_scratchpad(args.text, append=args.append))
+            elif args.scratchpad_command == "read":
+                require_context_dir()
+                print(read_scratchpad())
+            elif args.scratchpad_command == "clear":
+                require_context_dir()
+                print(clear_scratchpad())
+            elif args.scratchpad_command == "artifact":
+                require_context_dir()
+                print(
+                    save_scratchpad_artifact(args.name, args.scope, clear=not args.keep)
+                )
+            elif args.scratchpad_command == "hook":
+                require_context_dir()
+                print(post_llm_artifact_hook(args.text, clear=not args.keep))
 
         elif args.command == "list":
             require_context_dir()

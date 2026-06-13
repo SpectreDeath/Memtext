@@ -1,5 +1,12 @@
 """Agent skills for memtext context management."""
 
+from memtext.artifacts import (
+    clear_scratchpad,
+    post_llm_artifact_hook,
+    read_scratchpad,
+    save_scratchpad_artifact,
+    write_scratchpad,
+)
 from memtext.core import (
     SYNTHESIS_PROMPT,
     add_skill,
@@ -32,6 +39,42 @@ from memtext.prolog_memory import (
     preserve_memory,
     query_memory,
 )
+
+
+def scratchpad_skill(action: dict) -> dict:
+    action_type = action.get("action")
+
+    if action_type == "write":
+        return {
+            "status": "success",
+            "message": write_scratchpad(action.get("text", ""), action.get("append", False)),
+        }
+
+    if action_type == "read":
+        return {"status": "success", "content": read_scratchpad()}
+
+    if action_type == "clear":
+        return {"status": "success", "message": clear_scratchpad()}
+
+    if action_type == "save_artifact":
+        return {
+            "status": "success",
+            "message": save_scratchpad_artifact(
+                action.get("name", "memory-artifact"),
+                scope=action.get("scope", "general"),
+                clear=action.get("clear", True),
+            ),
+        }
+
+    if action_type == "hook":
+        return {
+            "status": "success",
+            "response": post_llm_artifact_hook(
+                action.get("text", ""), clear=action.get("clear", True)
+            ),
+        }
+
+    return {"status": "error", "message": "Unknown action"}
 
 
 def context_manager(action: dict) -> dict:
